@@ -64,4 +64,4 @@ class Cosmology:
         if self.use_hunits:
             return self._cosmo.comoving_transverse_distance(z).value * (self._cosmo.H0.value / 100)
         else:
-            return self._cosmo.comoving_transverse_distance(z).
+            return self._cosmo.comoving_transverse_distance(z).value
