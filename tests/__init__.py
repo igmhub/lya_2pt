@@ -1,0 +1,8 @@
+import unittest
+import os
+
+def test_suite():
+    """
+        Returns unittest.TestSuite of picca tests for use by setup.py
+    """
+    pass
