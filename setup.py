@@ -25,7 +25,7 @@ setup(name="lya_2pt",
       author="Ignasi Pérez-Ràfols, Andrei Cuceu et al",
       author_email="iprafols@gmail.com",
       packages=find_namespace_packages(),
-      install_requires=['numpy', 'scipy', 'healpy', 'fitsio', 'numba', 'setuptools',
+      install_requires=['numpy', 'scipy', 'astropy', 'healpy', 'fitsio', 'numba', 'setuptools',
                         'mpi4py', 'gitpython'],
       scripts=scripts
       )
