@@ -1,5 +1,6 @@
 import numpy as np
 from numba import jit, int32
+from utils import get_angle
 
 
 def compute_xi(tracers1, tracers2, config):
@@ -12,8 +13,9 @@ def compute_xi(tracers1, tracers2, config):
     num_pairs_grid = np.zeros(total_size, dtype=np.int64)
 
     for tracer1 in tracers1:
-        for tracer2 in tracers2:
-            angle = tracer1.angle(tracer2)
+        for tracer2 in tracers2[tracer1.neighbours]:
+            angle = get_angle(tracer1.ra, tracer1.dec, tracer2.ra, tracer2.dec)
+
             compute_xi_pair_vectorized(tracer1.deltas, tracer1.weights, tracer1.z,
                 tracer1.comoving_distance, tracer1.comoving_transverse_distance,
                 tracer2.deltas, tracer2.weights, tracer2.z,
