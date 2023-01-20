@@ -10,7 +10,8 @@ class Tracer:
     Methods
     -------
     __init__
-    angle
+    add_neighbours
+    compute_comoving_distances
 
     Attributes
     ----------
@@ -48,8 +49,7 @@ class Tracer:
     z: array of float
     The redshift associated with the deltas field.
     """
-    def __init__(self, los_id, ra, dec, deltas, weights, log_lambda, z,
-                 cosmo):
+    def __init__(self, los_id, ra, dec, deltas, weights, log_lambda, z):
         """Initializes class instance
 
         neighbours class attribute is initialized to None. Method add_neighbours
@@ -79,9 +79,6 @@ class Tracer:
 
         z: array of float
         The redshift associated with the deltas field.
-
-        cosmo: lya_2pt.cosmo.Cosmology
-        Cosmology used to convert angles and redshifts to distances
         """
         self.los_id = los_id
         self.ra = ra
@@ -92,12 +89,12 @@ class Tracer:
         self.log_lambda = log_lambda
         self.z = z
 
-        self.comoving_distance = cosmo.comoving_distance(z)
-        self.comoving_transverse_distance = cosmo.comoving_transverse_distance(z)
+        self.comoving_distance = None
+        self.comoving_transverse_distance = None
 
         self.neighbours = None
 
-    def add_neighbours(neighbours):
+    def add_neighbours(self, neighbours):
         """Update the neighbours
 
         Arguments
@@ -108,3 +105,14 @@ class Tracer:
         False otherwise.
         """
         self.neighbours = neighbours
+
+    def compute_comoving_distances(self, cosmo):
+        """Compute the comoving distance and the transverse comoving distance
+
+        Arguments
+        ---------
+        cosmo: lya_2pt.cosmo.Cosmology
+        Cosmology used to convert angles and redshifts to distances
+        """
+        self.comoving_distance = cosmo.comoving_distance(z)
+        self.comoving_transverse_distance = cosmo.comoving_transverse_distance(z)

@@ -64,9 +64,16 @@ class ForestHealpixReader:
 
         # rebin
         if config.getint("rebin") > 1:
-            arguments = [(tracer, rebin_factor) for tracer in self.tracers]
+            arguments = [
+                (tracer.log_lambda, tracer.flux, rebin_factor)
+                for tracer in self.tracers
+            ]
             pool = Pool(processes=reader_config.getint("num processors"))
             results = pool.starmap(rebin, arguments)
+            for tracer, (log_lambda, deltas, weights) in zip(tracers, results):
+                tracer.log_lambda = log_lambda
+                tracer.deltas = deltas
+                tracer.weights = weights
             pool.close()
 
         # project
@@ -74,6 +81,9 @@ class ForestHealpixReader:
             pool = Pool(processes=reader_config.getint("num processors"))
             results = pool.starmap(project_deltas, tracers)
             pool.close()
+
+        # add distances
+        [tracer.compute_comoving_distances(cosmo) for tracer in tracers]
 
     def find_healpix_neighbours(self):
         """Find the healpix neighbours
@@ -193,10 +203,56 @@ def read_from_hdu(input_file, cosmo, absorption_line):
 
     return np.arrays(tracers)
 
-def rebin(*args):
-    print("Not implemented")
-    continue
+@njit()
+def rebin(log_lambda, deltas, weights, rebin_factor, wave_solution):
+    """Rebin a Tracer by combining N pixels together
+
+    Arguments
+    ---------
+    log_lambda: array of float
+    An array with the logarithm of the wavelength
+
+    deltas: array of float
+    An array with the delta field
+
+    weights: array of float
+    An array with the weights associated with the delta field
+
+    rebin_factor: int
+    Number of pixels to merge together
+
+    wave_solution: "lin" or "log"
+    Specifies whether the underlying wavelength grid is evenly
+    spaced on wavelength (lin) or on the logarithm of the wavelength (log)
+
+    Return
+    ------
+    rebin_log_lambda: array of float
+    The rebinned array for the logarithm of the wavelength
+
+    rebin_flux: array of float
+    The rebinned array for the flux
+
+    rebin_weight: array of float
+    The rebinned array for the inverse variance
+    """
+    # find neew grid
+    if wave_solution == "lin":
+        lambda_ = 10**np.array(log_lambda)
+        rebin_lambda = np.average(lambda_.reshape(-1, rebin_factor), axis=1)
+        rebin_log_lambda = np.log10(rebin_lambda)
+    else:
+        rebin_log_lambda = np.average(log_lambda.reshape(-1, rebin_factor), axis=1)
+
+    # do the rebinning
+    bins = find_bins(log_lambda, rebin_log_lambda, wave_solution)
+    binned_arr_size = bins.max() + 1
+
+    rebin_deltas = np.bincount(bins, weights=weights * deltas, minlength=binned_arr_size)
+    rebin_weights = np.bincount(bins, weights=weights, minlength=binned_arr_size)
+
+    return rebin_log_lambda, rebin_deltas, rebin_weights
 
 def project_deltas(*args):
     print("Not implemented")
-    continue
+    return
