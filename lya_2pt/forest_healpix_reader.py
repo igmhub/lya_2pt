@@ -2,8 +2,14 @@
 
 from picca.delta_extraction.utils import ABSORBER_IGM
 
+from lya_2pt.utils import parse_config
+
+accepted_options = ["absorption line", "num processors",  "order"]
+
 defaults = {
     "absorption line": "LYA",
+    "num processors": 1,
+    "order": 1,
 }
 
 class ForestHealpixReader:
@@ -43,7 +49,7 @@ class ForestHealpixReader:
         Name of the file to read
         """
         # locate files
-        reader_config = config["reader"]
+        reader_config = parse_config(config["reader"], defaults, accepted_options)
 
         # intialize cosmology
         cosmo = Cosmology(config["cosmology"])
@@ -64,23 +70,49 @@ class ForestHealpixReader:
 
         # rebin
         if config.getint("rebin") > 1:
-            arguments = [
-                (tracer.log_lambda, tracer.flux, rebin_factor)
-                for tracer in self.tracers
-            ]
-            pool = Pool(processes=reader_config.getint("num processors"))
-            results = pool.starmap(rebin, arguments)
+            if reader_config.getint("num processors") > 1:
+                arguments = [
+                    (tracer.log_lambda, tracer.flux, rebin_factor)
+                    for tracer in self.tracers
+                ]
+                pool = Pool(processes=reader_config.getint("num processors"))
+                results = pool.starmap(rebin, arguments)
+                pool.close()
+            else:
+                results = [
+                    rebin(tracer.log_lambda, tracer.flux, rebin_factor)
+                    for tracer in self.tracers
+                ]
             for tracer, (log_lambda, deltas, weights) in zip(tracers, results):
                 tracer.log_lambda = log_lambda
                 tracer.deltas = deltas
                 tracer.weights = weights
-            pool.close()
+
 
         # project
         if config.getint("project deltas"):
-            pool = Pool(processes=reader_config.getint("num processors"))
-            results = pool.starmap(project_deltas, tracers)
-            pool.close()
+            if reader_config.getint("num processors") > 1:
+                arguments = [
+                    (tracer.log_lambda, tracer.deltas, tracer.weights,
+                     reader_config.getint("order"))
+                    for tracer in self.tracers
+                ]
+                pool = Pool(processes=reader_config.getint("num processors"))
+                results = pool.starmap(project_deltas, arguments)
+                pool.close()
+            else:
+                results = [
+                    project_deltas(
+                        tracer.log_lambda,
+                        tracer.deltas,
+                        tracer.weights,
+                        reader_config.getint("order"),
+                    )
+                    for tracer in tracers
+                ]
+
+            for tracer, (log_lambda, deltas, weights) in zip(tracers, results):
+                tracer.deltas = deltas
 
         # add distances
         [tracer.compute_comoving_distances(cosmo) for tracer in tracers]
@@ -230,11 +262,11 @@ def rebin(log_lambda, deltas, weights, rebin_factor, wave_solution):
     rebin_log_lambda: array of float
     The rebinned array for the logarithm of the wavelength
 
-    rebin_flux: array of float
-    The rebinned array for the flux
+    rebin_deltas: array of float
+    The rebinned array for the deltas
 
     rebin_weight: array of float
-    The rebinned array for the inverse variance
+    The rebinned array for the weights
     """
     # find neew grid
     if wave_solution == "lin":
@@ -253,6 +285,50 @@ def rebin(log_lambda, deltas, weights, rebin_factor, wave_solution):
 
     return rebin_log_lambda, rebin_deltas, rebin_weights
 
-def project_deltas(*args):
-    print("Not implemented")
-    return
+@njit()
+def project_deltas(log_lambda, deltas, weights, order):
+    """Project the delta field
+
+    The projection gets rid of the distortion caused by the continuum
+    fitiing. See equations 5 and 6 of du Mas des Bourboux et al. 2020
+
+    Arguments
+    ---------
+    log_lambda: array of float
+    An array with the logarithm of the wavelength
+
+    deltas: array of float
+    An array with the delta field
+
+    weights: array of float
+    An array with the weights associated with the delta field
+
+    order: int
+    Order of
+
+    Return
+    ------
+    projected_deltas: array of float
+    The projected deltas. If the sum of weights is zero, then the function
+    does nothing and returns the original deltas
+    """
+    # 2nd term in equation 6
+    sum_weights = np.sum(weights)
+    if sum_weights > 0.0:
+        mean_delta = np.average(deltas, weights=weights)
+    else:
+        # TODO: write a warning
+        return deltas
+
+    projected_deltas = deltas - mean_delta
+
+    # 3rd term in equation 6
+    if order == 1:
+        mean_log_lambda = np.average(log_lambda, weights=weights)
+        meanless_log_lambda = log_lambda - mean_log_lambda
+        mean_delta_log_lambda = (
+            np.sum(weights * deltas * meanless_log_lambda) /
+            np.sum(weights * meanless_log_lambda**2))
+        projected_deltas -= mean_delta_log_lambda * meanless_log_lambda
+
+    return projected_deltas

@@ -6,6 +6,8 @@ import numpy as np
 import astropy.units as units
 from astropy.cosmology import FlatLambdaCDM, LambdaCDM, FlatwCDM, wCDM
 
+from lya_2pt.utils import parse_config
+
 accepted_options = [
     "H0", "Omega_de", "Omega_m", "m_nu", "Neff", "use h units", "T_cmb",
 ]
@@ -107,22 +109,7 @@ class Cosmology:
         config: configparser.SectionProxy
         Parsed options to initialize class
         """
-        # update the section adding the default choices when necessary
-        for key, value in defaults.items():
-            if key not in config:
-                config[key] = str(value)
-
-        # make sure all the required variables are present
-        for key in accepted_options:
-            if key not in config:
-                raise CosmologyError(f"Missing option {key}"")
-
-        # check that all arguments are valid
-        for key in correction_args:
-            if key not in accepted_options:
-                raise CosmologyError(
-                    f"Unrecognised option. Found: '{key}'. Accepted options are "
-                    f"{accepted_options}")
+        config = parse_config(config, defaults, accepted_options)
 
         # special check: m_nu format
         try:
