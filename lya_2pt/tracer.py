@@ -1,5 +1,7 @@
 """This file defines the class Tracer used to compute the correlation functions"""
 import logging
+import numpy as np
+
 
 class Tracer:
     """Class contanining the information about the tracers.
@@ -84,6 +86,10 @@ class Tracer:
         self.ra = ra
         self.dec = dec
 
+        self.x_cart = np.cos(ra) * np.cos(dec)
+        self.y_cart = np.sin(ra) * np.cos(dec)
+        self.z_cart = np.sin(dec)
+
         self.deltas = deltas
         self.weights = weights
         self.log_lambda = log_lambda
@@ -114,5 +120,18 @@ class Tracer:
         cosmo: lya_2pt.cosmo.Cosmology
         Cosmology used to convert angles and redshifts to distances
         """
-        self.comoving_distance = cosmo.comoving_distance(z)
-        self.comoving_transverse_distance = cosmo.comoving_transverse_distance(z)
+        self.comoving_distance = cosmo.comoving_distance(self.z)
+        self.comoving_transverse_distance = cosmo.comoving_transverse_distance(self.z)
+
+    def check_if_neighbour(self, other_tracer, auto_flag, z_min, z_max):
+        if (other_tracer.z[-1] + self.z[-1]) / 2. < z_min:
+            return False
+        elif (other_tracer.z[-1] + self.z[-1]) / 2. >= z_max:
+            return False
+        elif auto_flag and (self.ra < other_tracer.ra):
+            return False
+        elif other_tracer.los_id == self.los_id:
+            return False
+        # Add more conditions
+
+        return True

@@ -1,8 +1,12 @@
 """This file defines the class ForestReader used to read the data"""
 
-from picca.delta_extraction.utils import ABSORBER_IGM
+import numpy as np
+from healpy import query_disc
 
 from lya_2pt.utils import parse_config
+from lya_2pt.tracer import Tracer
+
+from picca.delta_extraction.utils import ABSORBER_IGM
 
 accepted_options = ["absorption line", "num processors",  "order"]
 
@@ -117,6 +121,13 @@ class ForestHealpixReader:
         # add distances
         [tracer.compute_comoving_distances(cosmo) for tracer in tracers]
 
+        self.z_min = config["cuts"].getfloat('z_min', 0.)
+        self.z_max = config["cuts"].getfloat('z_max', 10.)
+
+        # We need to figure out somewhere if this is an auto-correlation or not
+        # and initialize this flag (i.e. if data_set_1 = data_set_2)
+        self.auto_flag = True
+
     def find_healpix_neighbours(self):
         """Find the healpix neighbours
 
@@ -125,6 +136,15 @@ class ForestHealpixReader:
         healpix_ids: array of int
         The healpix id of the neighbouring healpixes
         """
+        # TODO We need to initialize nside (read from config) and ang_max (compute using cosmo)
+        neighbour_ids = set()
+        for tracer in self.tracers:
+            tracer_neighbour_ids = query_disc(self.nside, [tracer.x_cart, tracer.y_cart, tracer.z_cart],
+                                              self.ang_max, inclusive=True)
+            neighbour_ids = neighbour_ids.union(set(tracer_neighbour_ids))
+
+        return np.array(neighbour_ids)
+            
 
     def find_neighbours(self, other_tracers):
         """
@@ -134,12 +154,15 @@ class ForestHealpixReader:
         other_tracers: array of Tracer
         Other tracers
         """
-        # for tracer in tracers
-            # intialize mask matrix
+        for tracer1 in self.tracers:
+            neighbour_mask = np.full(other_tracers.shape, False)
 
-            # fill True for the neighbours
+            for i, tracer2 in enumerate(other_tracers):
+                if tracer1.check_if_neighbour(tracer2, self.auto_flag,
+                                              self.z_min, self.z_max):
+                    neighbour_mask[i] = True
 
-            # add neightbours to forest
+            tracer1.add_neighbours(neighbour_mask)
 
 def read_from_image(input_file, cosmo, absorption_line):
     """Read data with image format

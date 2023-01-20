@@ -1,6 +1,9 @@
-from mpi4py import MPI
+import glob
 import numpy as np
-from lya_2pt.forest_reader import ForestReader
+from mpi4py import MPI
+
+from lya_2pt.forest_healpix_reader import ForestHealpixReader
+from lya_2pt.tracer2_reader import Tracer2Reader
 from lya_2pt.correlation import compute_xi
 
 
@@ -24,13 +27,17 @@ class Interface:
         # Read computation data
         for rank, file in enumerate(files):
             if rank == self.mpi_rank:   
-                forest_reader = ForestReader(config, file)
+                forest_reader = ForestHealpixReader(config, file)
                 neighbour_ids = forest_reader.find_healpix_neighbours()
 
                 tracer2_reader = Tracer2Reader(config, neighbour_ids)
 
+                # Check if we are working with an auto-correlation
+                if True:
+                    tracer2_reader.add_tracers1(forest_reader.tracers)
+
                 tracers2 = tracer2_reader.tracers
-                forest_reader.find_neighbours(tracer2)
+                forest_reader.find_neighbours(tracers2)
                 tracers1 = forest_reader.tracers
 
                 output = None
