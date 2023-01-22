@@ -45,7 +45,7 @@ class Tracer2Reader:
             file = in_dir + f'delta-{healpix_id}.fits.gz'
             if file in files:
                 healpix_reader = ForestHealpixReader(self.config['reader'], file, cosmo)
-                self.tracers = np.concatenate(self.tracers, healpix_reader.tracers)
+                self.tracers = np.concatenate((self.tracers, healpix_reader.tracers))
             else:
                 # Print some error message? Or just a warning?
                 pass
@@ -70,4 +70,4 @@ class Tracer2Reader:
             Array containing tracers1 read by the original ForestHealpixReader
         """
         assert tracers1.dtype == Tracer
-        self.tracers = np.concatenate(tracers1, self.tracers)
+        self.tracers = np.concatenate((tracers1, self.tracers))
