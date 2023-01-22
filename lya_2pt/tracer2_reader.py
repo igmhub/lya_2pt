@@ -44,7 +44,7 @@ class Tracer2Reader:
         for healpix_id in neighbour_ids:
             file = in_dir + f'delta-{healpix_id}.fits.gz'
             if file in files:
-                healpix_reader = ForestHealpixReader(self.config, file, cosmo)
+                healpix_reader = ForestHealpixReader(self.config['reader'], file, cosmo)
                 self.tracers = np.concatenate(self.tracers, healpix_reader.tracers)
             else:
                 # Print some error message? Or just a warning?
