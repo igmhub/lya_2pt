@@ -10,11 +10,13 @@ First, create a clean environment:
 conda create -n my_env python==version gitpython
 conda activate my_env
 ```
+
 The next step is to install mpi4py. If you are at NERSC use this command (see [NERSC documentation](https://docs.nersc.gov/development/languages/python/parallel-python/#mpi4py-in-your-custom-conda-environment)):
 ```
 MPICC="cc -shared" pip install --force-reinstall --no-cache-dir --no-binary=mpi4py mpi4py
 ```
-If not at NERSC, follow the instructions in the [mpi4py documentation](https://mpi4py.readthedocs.io/en/stable/install.html)
+If not at NERSC, follow the instructions in the [mpi4py documentation](https://mpi4py.readthedocs.io/en/stable/install.html).
+
 Finally, clone and install lya_2pt:
 ```
 git clone https://github.com/igmhub/lya_2pt.git
