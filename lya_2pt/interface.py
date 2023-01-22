@@ -18,33 +18,41 @@ class Interface:
     def __init__(self, config):
         # Initilize MPI objects
         self.mpi_comm = MPI.COMM_WORLD
-        self.mpi_rank = self.comm.Get_rank()
-        self.mpi_size = self.comm.Get_size()
+        self.mpi_rank = self.mpi_comm.Get_rank()
+        self.mpi_size = self.mpi_comm.Get_size()
 
         # Find files
-        files = glob.glob(config['reader'].get('input directory'))
+        files = np.array(glob.glob(config['reader'].get('input directory')))
+
+        num_tasks_per_proc = len(files) / self.mpi_size
+        remainder = len(files) % self.mpi_size
+        if self.mpi_rank < remainder:
+            start = self.mpi_rank * (num_tasks_per_proc + 1)
+            stop = start + num_tasks_per_proc + 1
+        else:
+            start = self.mpi_rank * num_tasks_per_proc + remainder
+            stop = start + num_tasks_per_proc
 
         # Read computation data
-        for rank, file in enumerate(files):
-            if rank == self.mpi_rank:   
-                forest_reader = ForestHealpixReader(config, file)
-                neighbour_ids = forest_reader.find_healpix_neighbours()
+        for file in files[start:stop]:
+            forest_reader = ForestHealpixReader(config, file)
+            neighbour_ids = forest_reader.find_healpix_neighbours()
 
-                tracer2_reader = Tracer2Reader(config, neighbour_ids)
+            tracer2_reader = Tracer2Reader(config, neighbour_ids)
 
-                # Check if we are working with an auto-correlation
-                if True:
-                    tracer2_reader.add_tracers1(forest_reader.tracers)
+            # Check if we are working with an auto-correlation
+            if True:
+                tracer2_reader.add_tracers1(forest_reader.tracers)
 
-                tracers2 = tracer2_reader.tracers
-                forest_reader.find_neighbours(tracers2)
-                tracers1 = forest_reader.tracers
+            tracers2 = tracer2_reader.tracers
+            forest_reader.find_neighbours(tracers2)
+            tracers1 = forest_reader.tracers
 
-                output = None
-                if config['compute'].getboolean('compute xi'):
-                    output = compute_xi(tracers1, tracers2, config)
+            output = None
+            if config['compute'].getboolean('compute xi'):
+                output = compute_xi(tracers1, tracers2, config)
 
-                self.write_healpix_output(output)
+            self.write_healpix_output(output)
 
     def write_healpix_output(self, output):
         pass
