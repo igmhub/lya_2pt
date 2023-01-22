@@ -6,19 +6,20 @@ import numpy as np
 import astropy.units as units
 from astropy.cosmology import FlatLambdaCDM, LambdaCDM, FlatwCDM, wCDM
 
-from lya_2pt.utils import parse_config
+from lya_2pt.utils import parse_config, CosmologyError
 
 accepted_options = [
-    "H0", "Omega_de", "Omega_m", "m_nu", "Neff", "use h units", "T_cmb",
+    "H0", "Omega_de", "Omega_m", "m_nu", "Neff", "use h units", "Tcmb", "w0"
 ]
 
 defaults = {
     "H0": 67.36,
     "Omega_m": 0.315,
-    "m_nu": "0.06; 0.0; 0.0",
+    "m_nu": "0.06;0.0;0.0",
     "Neff": 3.046,
     "Tcmb": 2.72548,
-
+    "Omega_de": None,
+    "w0": None,
     "use h units": True,
 }
 
@@ -56,42 +57,34 @@ class Cosmology:
         self.use_hunits = self.config.getboolean("use h units")
 
         # Initialize the right cosmology object
-        if self.config.get("Omega_de") is None and self.config.get("w0") is None:
-            self._cosmo = FlatLambdaCDM(
-                H0=self.config.get("H0"),
-                Om0=self.config.get("Omega_m"),
-                Tcmb0=self.config.get("Tcmb"),
-                Neff=self.config.get("Neff"),
-                m_nu=self.config.get("m_nu") * units.electronvolt,
-            )
-        elif self.config.get("w0") is None:
-            self._cosmo = LambdaCDM(
-                H0=self.config.get("H0"),
-                Om0=self.config.get("Omega_m"),
-                Ode0=self.config.get("Omega_de"),
-                Tcmb0=self.config.get("Tcmb"),
-                Neff=self.config.get("Neff"),
-                m_nu=self.config.get("m_nu") * units.electronvolt,
-            )
-        elif self.config.get("Omega_de") is None:
-            self._cosmo = FlatwCDM(
-                H0=self.config.get("H0"),
-                Om0=self.config.get("Omega_m"),
-                w0=self.config.get("w0"),
-                Tcmb0=self.config.get("Tcmb"),
-                Neff=self.config.get("Neff"),
-                m_nu=self.config.get("m_nu") * units.electronvolt,
-            )
+        if self.Omega_de is None and self.w0 is None:
+            self._cosmo = FlatLambdaCDM(H0=self.config.get("H0"),
+                                        Om0=self.config.get("Omega_m"),
+                                        Tcmb0=self.config.get("Tcmb"),
+                                        Neff=self.config.get("Neff"),
+                                        m_nu=self.m_nu * units.electronvolt)
+        elif self.w0 is None:
+            self._cosmo = LambdaCDM(H0=self.config.get("H0"),
+                                    Om0=self.config.get("Omega_m"),
+                                    Ode0=self.Omega_de,
+                                    Tcmb0=self.config.get("Tcmb"),
+                                    Neff=self.config.get("Neff"),
+                                    m_nu=self.m_nu * units.electronvolt)
+        elif self.Omega_de is None:
+            self._cosmo = FlatwCDM(H0=self.config.get("H0"),
+                                   Om0=self.config.get("Omega_m"),
+                                   w0=self.config.get("w0"),
+                                   Tcmb0=self.config.get("Tcmb"),
+                                   Neff=self.config.get("Neff"),
+                                   m_nu=self.m_nu * units.electronvolt)
         else:
-            self._cosmo = wCDM(
-                H0=self.config.get("H0"),
-                Om0=self.config.get("Omega_m"),
-                Ode0=self.config.get("Omega_de"),
-                w0=self.config.get("w0"),
-                Tcmb0=self.config.get("Tcmb"),
-                Neff=self.config.get("Neff"),
-                m_nu=self.config.get("m_nu") * units.electronvolt,
-            )
+            self._cosmo = wCDM(H0=self.config.get("H0"),
+                               Om0=self.config.get("Omega_m"),
+                               Ode0=self.Omega_de,
+                               w0=self.w0,
+                               Tcmb0=self.config.get("Tcmb"),
+                               Neff=self.config.get("Neff"),
+                               m_nu=self.m_nu * units.electronvolt)
 
     def __parse_config(self, config):
         """Parse the given configuration
@@ -113,16 +106,28 @@ class Cosmology:
 
         # special check: m_nu format
         try:
-            m_nu = np.fromstring(config.get("m_nu"), sep=";")
-            if m_nu.size != np.floor(config.get("Neff")):
+            self.m_nu = np.array(np.fromstring(config.get("m_nu"), sep=";"))
+            if self.m_nu.size != int(np.floor(config.getfloat("Neff"))):
                 raise CosmologyError(
                     f"Incorrect format for option 'm_nu'. "
-                    f"Expected {np.floor(config.get('Neff'))} masses. "
-                    f"Found {m_nu.size}. Read array: {m_nu}")
+                    f"Expected {np.floor(config.getfloat('Neff'))} masses. "
+                    f"Found {self.m_nu.size}. Read array: {self.m_nu}")
         except TypeError as error:
             raise CosmologyError(
                 f"Incorrect format for option 'm_nu'. Expected a string with "
                 "coma separated numbers") from error
+
+        if config.get('Omega_de') == 'None':
+            self.Omega_de = None
+        else:
+            self.Omega_de = config.getfloat('Omega_de')
+
+        if config.get('w0') == 'None':
+            self.w0 = None
+        else:
+            self.w0 = config.getfloat('w0')
+
+        return config
 
     def comoving_distance(self, z):
         """Compute comoving distance D_C(z)
@@ -143,7 +148,7 @@ class Cosmology:
             distance *= self._cosmo.H0.value / 100
         return distance
 
-    def comoving_transverse_distance(self, z: ArrayLike):
+    def comoving_transverse_distance(self, z):
         """Compute comoving angular diameter distance D_M(z)
         Units are either Mpc or Mpc/h depending on the use_hunits flag
 

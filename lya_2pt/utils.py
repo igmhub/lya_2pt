@@ -1,5 +1,7 @@
+import numpy as np
 
-def parse_config(self, config, defaults, accepted_options):
+
+def parse_config(config, defaults, accepted_options):
     """Parse the given configuration
 
     Check that all required variables are present
@@ -29,11 +31,60 @@ def parse_config(self, config, defaults, accepted_options):
     # make sure all the required variables are present
     for key in accepted_options:
         if key not in config:
-            raise CosmologyError(f"Missing option {key}"")
+            raise ParserError(f"Missing option {key}")
 
     # check that all arguments are valid
     for key in config:
         if key not in accepted_options:
-            raise CosmologyError(
+            raise ParserError(
                 f"Unrecognised option. Found: '{key}'. Accepted options are "
                 f"{accepted_options}")
+
+    return config
+
+
+def compute_ang_max(cosmo, rt_max, z_min, z_min2=None):
+    """Computes the maximum anglular separation the correlation should be
+    calculated to.
+    This angle is given by the maximum transverse separation and the fiducial
+    cosmology
+    Args:
+        comso: constants.Cosmo
+            Fiducial cosmology
+        rt_max: float
+            Maximum transverse separation
+        z_min: float
+            Minimum redshift of the first set of data
+        z_min2: float or None - default: None
+            Minimum redshift of the second set of data. If None, use z_min
+    Returns:
+        The maximum anglular separation
+    """
+    if z_min2 is None:
+        z_min2 = z_min
+
+    r_min = cosmo.comoving_transverse_distance(z_min)
+    r_min2 = cosmo.comoving_transverse_distance(z_min2)
+
+    if r_min + r_min2 < rt_max:
+        ang_max = np.pi
+    else:
+        ang_max = 2. * np.arcsin(rt_max / (r_min + r_min2))
+
+    return ang_max
+
+
+def get_angle(tracer1, tracer2):
+    pass
+
+
+class ParserError(Exception):
+    pass
+
+
+class CosmologyError(Exception):
+    pass
+
+
+class MPIError(Exception):
+    pass
