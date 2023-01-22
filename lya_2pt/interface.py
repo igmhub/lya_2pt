@@ -49,7 +49,7 @@ class Interface:
 
         # Find files
         input_directory = config['data'].get('input_directory')
-        files = np.array(glob.glob(input_directory))
+        files = np.array(glob.glob(input_directory + '/*fits*'))
 
         if len(files) < self.mpi_size:
             raise MPIError(f"Less files in {input_directory} than MPI processes. "

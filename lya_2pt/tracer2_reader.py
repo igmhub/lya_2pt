@@ -38,7 +38,7 @@ class Tracer2Reader:
         else:
             in_dir = self.config['data'].get('input_directory2')
 
-        files = glob.glob(in_dir)
+        files = np.array(glob.glob(in_dir + '/*fits*'))
 
         self.tracers = np.array([], dtype=Tracer)
         for healpix_id in neighbour_ids:

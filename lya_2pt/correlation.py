@@ -1,6 +1,6 @@
 import numpy as np
 from numba import jit, int32
-from utils import get_angle
+from lya_2pt.utils import get_angle
 
 
 def compute_xi(tracers1, tracers2, config):
