@@ -8,3 +8,5 @@
 \build/
 
 py/picca\.egg-info/
+
+lya_2pt.egg-info/
