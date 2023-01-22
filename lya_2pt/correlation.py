@@ -4,7 +4,13 @@ from lya_2pt.utils import get_angle
 
 
 def compute_xi(tracers1, tracers2, config):
-    total_size = config.get('num_bins_rp') * config.get('num_bins_rt')
+    rp_min = config.getfloat('rp_min')
+    rp_max = config.getfloat('rp_max')
+    rt_max = config.getfloat('rt_max')
+    num_bins_rp = config.getfloat('num_bins_rp')
+    num_bins_rt = config.getfloat('num_bins_rt')
+    total_size = num_bins_rp * num_bins_rt
+
     xi_grid = np.zeros(total_size)
     weights_grid = np.zeros(total_size)
     rp_grid = np.zeros(total_size)
@@ -20,8 +26,7 @@ def compute_xi(tracers1, tracers2, config):
                 tracer1.comoving_distance, tracer1.comoving_transverse_distance,
                 tracer2.deltas, tracer2.weights, tracer2.z,
                 tracer2.comoving_distance, tracer2.comoving_transverse_distance,
-                angle, config.get('rp_min'), config.get('rp_max'), config.get('rt_max'),
-                config.get('num_bins_rp'), config.get('num_bins_rt'),
+                angle, rp_min, rp_max, rt_max, num_bins_rp, num_bins_rt,
                 xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid)
 
     w = weights_grid > 0
