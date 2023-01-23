@@ -9,7 +9,7 @@ def compute_xi(tracers1, tracers2, config):
     rt_max = config.getfloat('rt_max')
     num_bins_rp = config.getfloat('num_bins_rp')
     num_bins_rt = config.getfloat('num_bins_rt')
-    total_size = num_bins_rp * num_bins_rt
+    total_size = int(num_bins_rp * num_bins_rt)
 
     xi_grid = np.zeros(total_size)
     weights_grid = np.zeros(total_size)
