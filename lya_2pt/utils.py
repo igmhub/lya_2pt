@@ -46,30 +46,40 @@ def parse_config(config, defaults, accepted_options):
 def compute_ang_max(cosmo, rt_max, z_min, z_min2=None):
     """Computes the maximum anglular separation the correlation should be
     calculated to.
+
     This angle is given by the maximum transverse separation and the fiducial
     cosmology
-    Args:
-        comso: constants.Cosmo
-            Fiducial cosmology
-        rt_max: float
-            Maximum transverse separation
-        z_min: float
-            Minimum redshift of the first set of data
-        z_min2: float or None - default: None
-            Minimum redshift of the second set of data. If None, use z_min
-    Returns:
-        The maximum anglular separation
+
+    Arguments
+    ---------
+    comso: Cosmology
+    Fiducial cosmology used to go from angles and redshift to distances
+
+    rt_max: float
+    Maximum transverse separation
+
+    z_min: float
+    Minimum redshift of the first set of data
+
+    z_min2: float or None - default: None
+    Minimum redshift of the second set of data. If None, use z_min
+
+    Return
+    ------
+    ang_max: float
+    The maximum anglular separation
     """
     if z_min2 is None:
         z_min2 = z_min
 
     r_min = cosmo.comoving_transverse_distance(z_min)
     r_min2 = cosmo.comoving_transverse_distance(z_min2)
+    r_sum = r_min + r_min2
 
-    if r_min + r_min2 < rt_max:
+    if r_sum < rt_max:
         ang_max = np.pi
     else:
-        ang_max = 2. * np.arcsin(rt_max / (r_min + r_min2))
+        ang_max = 2. * np.arcsin(rt_max / r_sum)
 
     return ang_max
 

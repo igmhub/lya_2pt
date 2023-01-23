@@ -123,15 +123,35 @@ class Tracer:
         self.comoving_distance = cosmo.comoving_distance(self.z)
         self.comoving_transverse_distance = cosmo.comoving_transverse_distance(self.z)
 
-    def check_if_neighbour(self, other_tracer, auto_flag, z_min, z_max):
-        if (other_tracer.z[-1] + self.z[-1]) / 2. < z_min:
+    def check_if_neighbour(self, other, auto_flag, z_min, z_max):
+        """Check if other tracer is a neighbour
+
+        Arguments
+        ---------
+        other: Tracer
+        The neighbour candidate
+
+        auto_flag: bool
+        A flag specifying whether we want to compute the auto-correlation.
+
+        Return
+        ------
+        is_neighbour: bool
+        True if the tracers are neighbours. False otherwise
+        """
+        # this is to avoid double counting in the autocorrelation
+        if auto_flag and (self.ra < other.ra):
             return False
-        elif (other_tracer.z[-1] + self.z[-1]) / 2. >= z_max:
+        # we don't correlate things in the same line of sight, due to continuum
+        # fitting errors
+        if other.los_id == self.los_id:
             return False
-        elif auto_flag and (self.ra < other_tracer.ra):
+
+        # redshift checks
+        z_check = (other.z[-1] + self.z[-1]) / 2.
+        if z_check < z_min or z_check >= z_max:
             return False
-        elif other_tracer.los_id == self.los_id:
-            return False
+
         # Add more conditions
 
         return True

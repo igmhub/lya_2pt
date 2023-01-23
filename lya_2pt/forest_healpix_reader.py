@@ -1,27 +1,29 @@
-"""This file defines the class ForestReader used to read the data"""
-
+"""This file defines the class ForestReader used to read the data.
+It also contains some auxliary functions for this class
+"""
 import fitsio
 import numpy as np
 from numba import njit
 from healpy import query_disc
 from multiprocessing import Pool
 
+from picca.delta_extraction.utils import ACCEPTED_BLINDING_STRATEGIES
+
 from lya_2pt.utils import parse_config, compute_ang_max
 from lya_2pt.tracer import Tracer
 from lya_2pt.absorbers import ABSORBER_IGM
 
-accepted_options = ["absorption_line", "project_deltas", "num_processors", "order",
-                    "rebin", "z_min", "z_max", "nside"]
+accepted_options = [
+    "absorption line", "auto flag", "num processors", "order",
+    "project deltas", "rebin"
+]
 
 defaults = {
-    "absorption_line": "LYA",
-    "num_processors": 1,
-    "project_deltas" : True,
+    "absorption line": "LYA",
+    "num processors": 1,
+    "project deltas" : True,
     "order": 1,
     "rebin": 1,
-    "z_min": 0,
-    "z_max": 10,
-    "nside": 16
 }
 
 
@@ -43,32 +45,46 @@ class ForestHealpixReader:
 
     Attributes
     ----------
+    auto_flag: bool
+    True if we are working with an auto-correlation, False for cross-correlation
+
     blinding: str
     A string specifying the chosen blinding strategies. Must be one of the
     accepted values in ACCEPTED_BLINDING_STRATEGIES
 
     tracers: array of Tracer
-
+    The set of tracers for this healpix
     """
     def __init__(self, config, file, cosmo):
         """Initialize class instance
 
         Arguments
         ---------
-        config: configparser.ConfigParser
+        config: configparser.SectionProxy
         Configuration options
 
         file: str
         Name of the file to read
+
+        cosmo: Cosmology
+        Fiducial cosmology used to go from angles and redshift to distances
         """
-        # locate files
+        # parse configuration
         reader_config = parse_config(config, defaults, accepted_options)
 
-        # figure out format and blinding
+        # extract parameters from config
+        absorption_line = reader_config.get("absorption line")
+        tracer1_type = config.get('type')
+        if tracer2_type != 'continuous':
+            raise ValueError(
+                f"Tracer1 type must be 'continuous'. Found: '{tracer1_type}'")
+
+        # initialize auto_flag to False
+        self.auto_flag = False
+
+        # read data
         self.tracers = None
         hdul = fitsio.FITS(file)
-
-        absorption_line = reader_config.get("absorption_line")
         # image format
         if "METADATA" in hdul:
             self.tracers, self.wave_solution = read_from_image(hdul, absorption_line)
@@ -77,6 +93,12 @@ class ForestHealpixReader:
         else:
             self.tracers, self.wave_solution = read_from_hdu(hdul, absorption_line)
             self.blinding = hdul[1].read_header()["BLINDING"]
+        if self.blinding not in ACCEPTED_BLINDING_STRATEGIES:
+            raise AttributeError(
+                "Expected blinding strategy fo be one of: " +
+                " ".join(ACCEPTED_BLINDING_STRATEGIES) +
+                f" Found: {self.blinding}"
+            )
 
         # rebin
         if config.getint("rebin") > 1:
@@ -116,45 +138,67 @@ class ForestHealpixReader:
         for tracer in self.tracers:
             tracer.compute_comoving_distances(cosmo)
 
-        # We need to figure out somewhere if this is an auto-correlation or not
-        # and initialize this flag (i.e. if data_set_1 = data_set_2)
-        self.auto_flag = True
-
     def find_healpix_neighbours(self, nside, ang_max):
         """Find the healpix neighbours
+
+        Arguments
+        ---------
+        nside: int
+        Nside parameter to construct the healpix pixels
+
+        ang_max: float
+        Maximum angle for two lines-of-sight to have neightbours
 
         Return
         ------
         healpix_ids: array of int
         The healpix id of the neighbouring healpixes
         """
-        assert self.tracers is not None, "Forest reader failure"
+        if self.tracers is None:
+            raise AttributeError(
+                "In ForestHealpixReader, self.tracer should not be None")
 
         # TODO We need to initialize nside (read from config) and ang_max (compute using cosmo)
         neighbour_ids = set()
         for tracer in self.tracers:
-            tracer_neighbour_ids = query_disc(nside, [tracer.x_cart, tracer.y_cart, tracer.z_cart],
-                                              ang_max, inclusive=True)
+            tracer_neighbour_ids = query_disc(
+                nside,
+                [tracer.x_cart, tracer.y_cart, tracer.z_cart],
+                ang_max,
+                inclusive=True)
             neighbour_ids = neighbour_ids.union(set(tracer_neighbour_ids))
 
         return np.array(list(neighbour_ids))
 
-    def find_neighbours(self, other_tracers, z_min, z_max):
-        """
+    def find_neighbours(self, other, z_min, z_max):
+        """For each tracer, find neighbouring tracers. Keep the results in
+        tracer.neighbours
 
         Arguments
         ---------
-        other_tracers: array of Tracer
+        other: Tracer2Reader
         Other tracers
+
+        z_min: float
+        Minimum redshift of the tracers
+
+        z_max: float
+        Maximum redshfit of the tracers
         """
-        assert self.tracers is not None, "Forest reader failure"
+        if self.tracers is None:
+            raise AttributeError(
+                "In ForestHealpixReader, self.tracer should not be None")
+        if other.tracers is None:
+            raise AttributeError(
+                "In ForestHealpixReader, other.tracer should not be None")
 
         for tracer1 in self.tracers:
-            neighbour_mask = np.full(other_tracers.shape, False)
+            neighbour_mask = np.full(other.tracers.shape, False)
 
-            for i, tracer2 in enumerate(other_tracers):
+            # TODO: This could be vectorized
+            for index2, tracer2 in enumerate(other.tracers):
                 if tracer1.check_if_neighbour(tracer2, self.auto_flag, z_min, z_max):
-                    neighbour_mask[i] = True
+                    neighbour_mask[index2] = True
 
             tracer1.add_neighbours(neighbour_mask)
 
