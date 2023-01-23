@@ -1,5 +1,7 @@
 import numpy as np
 
+SMALL_ANGLE_CUT_OFF = 2./3600.*np.pi/180. # 2 arcsec
+
 
 def parse_config(config, defaults, accepted_options):
     """Parse the given configuration
@@ -85,7 +87,36 @@ def compute_ang_max(cosmo, rt_max, z_min, z_min2=None):
 
 
 def get_angle(tracer1, tracer2):
-    pass
+    """Compute angle between two tracers of Tracer type
+
+    Parameters
+    ----------
+    tracer1 : Tracer
+        First tracer
+    tracer2 : Tracer
+        Second tracer
+
+    Returns
+    -------
+    float
+        Angle between tracer1 and tracer2
+    """
+
+    cos = (tracer2.x_cart * tracer1.x_cart + tracer2.y_cart * tracer1.y_cart
+           + tracer2.z_cart * tracer1.z_cart)
+
+    if cos >= 1.:
+        cos = 1.
+    elif cos <= -1.:
+        cos = -1.
+    angle = np.arccos(cos)
+
+    if ((np.abs(tracer2.ra - tracer1.ra) < SMALL_ANGLE_CUT_OFF)
+      & (np.abs(tracer2.dec - tracer1.dec) < SMALL_ANGLE_CUT_OFF)):
+        angle = np.sqrt((tracer2.dec - tracer1.dec)**2
+                        + (np.cos(tracer1.dec) * (tracer2.ra - tracer1.ra))**2)
+
+    return angle
 
 
 class ParserError(Exception):

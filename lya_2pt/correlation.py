@@ -9,7 +9,7 @@ def compute_xi(tracers1, tracers2, config):
     rt_max = config.getfloat('rt_max')
     num_bins_rp = config.getfloat('num_bins_rp')
     num_bins_rt = config.getfloat('num_bins_rt')
-    total_size = num_bins_rp * num_bins_rt
+    total_size = int(num_bins_rp * num_bins_rt)
 
     xi_grid = np.zeros(total_size)
     weights_grid = np.zeros(total_size)
@@ -20,7 +20,7 @@ def compute_xi(tracers1, tracers2, config):
 
     for tracer1 in tracers1:
         for tracer2 in tracers2[tracer1.neighbours]:
-            angle = get_angle(tracer1.ra, tracer1.dec, tracer2.ra, tracer2.dec)
+            angle = get_angle(tracer1, tracer2)
 
             compute_xi_pair_vectorized(tracer1.deltas, tracer1.weights, tracer1.z,
                 tracer1.comoving_distance, tracer1.comoving_transverse_distance,
