@@ -1,8 +1,10 @@
 import glob
 import numpy as np
 
-from lya_2pt.tracer import Tracer
+from lya_2pt.errors import ReaderException
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
+from lya_2pt.tracer import Tracer
+
 
 class Tracer2Reader:
     """Read neighbouring healpix files and store a tracers2 list
@@ -40,7 +42,8 @@ class Tracer2Reader:
         elif tracer2_type == 'discrete':
             self.read_catalogue(reader_config, healpix_neighbours_ids)
         else:
-            raise ValueError("Unknown tracer2 type. Must be 'continuous' or 'discrete'.")
+            raise ReaderException(
+                "Unknown tracer2 type. Must be 'continuous' or 'discrete'.")
 
     def read_forests(self, config, healpix_neighbours_ids, cosmo):
         """Read continuous tracers from healpix delta files

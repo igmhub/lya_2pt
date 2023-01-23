@@ -6,7 +6,8 @@ import numpy as np
 import astropy.units as units
 from astropy.cosmology import FlatLambdaCDM, LambdaCDM, FlatwCDM, wCDM
 
-from lya_2pt.utils import parse_config, CosmologyError
+from lya_2pt.errors import CosmologyError
+from lya_2pt.utils import parse_config
 
 accepted_options = [
     "H0", "Omega_de", "Omega_m", "m_nu", "Neff", "use h units", "Tcmb", "w0"
@@ -135,7 +136,7 @@ class Cosmology:
 
         Arguments
         ---------
-        z : array of float
+        z: array of float
         Redshifts at which to compute the comoving distance
 
         Return
@@ -154,7 +155,7 @@ class Cosmology:
 
         Arguments
         ---------
-        z : array of float
+        z: array of float
         Redshifts at which to compute the angular diameter distance
 
         Return

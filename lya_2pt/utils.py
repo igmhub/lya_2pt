@@ -1,7 +1,8 @@
 import numpy as np
 
-SMALL_ANGLE_CUT_OFF = 2./3600.*np.pi/180. # 2 arcsec
+from lya_2pt.errors import ParserError
 
+SMALL_ANGLE_CUT_OFF = 2./3600.*np.pi/180. # 2 arcsec
 
 def parse_config(config, defaults, accepted_options):
     """Parse the given configuration
@@ -89,19 +90,19 @@ def compute_ang_max(cosmo, rt_max, z_min, z_min2=None):
 def get_angle(tracer1, tracer2):
     """Compute angle between two tracers of Tracer type
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     tracer1 : Tracer
-        First tracer
+    First tracer
+
     tracer2 : Tracer
-        Second tracer
+    Second tracer
 
-    Returns
-    -------
-    float
-        Angle between tracer1 and tracer2
+    Return
+    ------
+    angle: float
+    Angle between tracer1 and tracer2
     """
-
     cos = (tracer2.x_cart * tracer1.x_cart + tracer2.y_cart * tracer1.y_cart
            + tracer2.z_cart * tracer1.z_cart)
 
@@ -117,15 +118,3 @@ def get_angle(tracer1, tracer2):
                         + (np.cos(tracer1.dec) * (tracer2.ra - tracer1.ra))**2)
 
     return angle
-
-
-class ParserError(Exception):
-    pass
-
-
-class CosmologyError(Exception):
-    pass
-
-
-class MPIError(Exception):
-    pass

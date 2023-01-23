@@ -2,11 +2,12 @@ import glob
 import numpy as np
 from mpi4py import MPI
 
+from lya_2pt.errors import MPIError
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
 from lya_2pt.tracer2_reader import Tracer2Reader
 from lya_2pt.correlation import compute_xi
 from lya_2pt.cosmo import Cosmology
-from lya_2pt.utils import MPIError, parse_config, compute_ang_max
+from lya_2pt.utils import parse_config, compute_ang_max
 
 accepted_options = [
     "num_bins_rp", "num_bins_rt", "nside", "rp_min", "rp_max", "rt_max",

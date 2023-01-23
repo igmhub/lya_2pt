@@ -9,9 +9,13 @@ from multiprocessing import Pool
 
 from picca.delta_extraction.utils import ACCEPTED_BLINDING_STRATEGIES
 
+
+# TODO: check this
+# why not load ABSORBER_IGM from delta_extraction?
+from lya_2pt.absorbers import ABSORBER_IGM
+from lya_2pt.errors import ReaderException
 from lya_2pt.utils import parse_config, compute_ang_max
 from lya_2pt.tracer import Tracer
-from lya_2pt.absorbers import ABSORBER_IGM
 
 accepted_options = [
     "absorption line", "auto flag", "num processors", "order",
@@ -68,6 +72,11 @@ class ForestHealpixReader:
 
         cosmo: Cosmology
         Fiducial cosmology used to go from angles and redshift to distances
+
+        Raise
+        -----
+        ReaderException if the tracer type is not continuous
+        ReaderException if the blinding strategy is not valid
         """
         # parse configuration
         reader_config = parse_config(config, defaults, accepted_options)
@@ -75,9 +84,9 @@ class ForestHealpixReader:
         # extract parameters from config
         absorption_line = reader_config.get("absorption line")
         tracer1_type = config.get('type')
-        if tracer2_type != 'continuous':
-            raise ValueError(
-                f"Tracer1 type must be 'continuous'. Found: '{tracer1_type}'")
+        if tracer1_type != 'continuous':
+            raise ReaderException(
+                f"Tracer type must be 'continuous'. Found: '{tracer1_type}'")
 
         # initialize auto_flag to False
         self.auto_flag = False
@@ -94,7 +103,7 @@ class ForestHealpixReader:
             self.tracers, self.wave_solution = read_from_hdu(hdul, absorption_line)
             self.blinding = hdul[1].read_header()["BLINDING"]
         if self.blinding not in ACCEPTED_BLINDING_STRATEGIES:
-            raise AttributeError(
+            raise ReaderException(
                 "Expected blinding strategy fo be one of: " +
                 " ".join(ACCEPTED_BLINDING_STRATEGIES) +
                 f" Found: {self.blinding}"
@@ -153,9 +162,13 @@ class ForestHealpixReader:
         ------
         healpix_ids: array of int
         The healpix id of the neighbouring healpixes
+
+        Raise
+        -----
+        ReaderException if the self.tracers is None
         """
         if self.tracers is None:
-            raise AttributeError(
+            raise ReaderException(
                 "In ForestHealpixReader, self.tracer should not be None")
 
         # TODO We need to initialize nside (read from config) and ang_max (compute using cosmo)
@@ -184,12 +197,17 @@ class ForestHealpixReader:
 
         z_max: float
         Maximum redshfit of the tracers
+
+        Raise
+        -----
+        ReaderException if the self.tracers is None
+        ReaderException if the other.tracers is None
         """
         if self.tracers is None:
-            raise AttributeError(
+            raise ReaderException(
                 "In ForestHealpixReader, self.tracer should not be None")
         if other.tracers is None:
-            raise AttributeError(
+            raise ReaderException(
                 "In ForestHealpixReader, other.tracer should not be None")
 
         for tracer1 in self.tracers:
@@ -221,12 +239,12 @@ def read_from_image(hdul, absorption_line):
     ------
     tracers: array of Tracer
     The loaded tracers
+
+    Raise
+    -----
+    ReaderException if both LOGLAM and LAMBDA extensions are not
+    in the HDU list
     """
-    # hdul = fitsio.FITS(input_file)
-
-    # header = hdul["METADATA"].read_header()
-    # num_forests = hdul["METADATA"].get_nrows()
-
     los_id_array = hdul["METADATA"]["LOS_ID"][:]
     ra_array = hdul["METADATA"]["RA"][:]
     dec_array = hdul["METADATA"]["DEC"][:]
@@ -244,7 +262,8 @@ def read_from_image(hdul, absorption_line):
         z = lambda_/ABSORBER_IGM.get(absorption_line) - 1.0
         wave_solution = 'lin'
     else:
-        raise KeyError("Did not find LOGLAM or LAMBDA in delta file")
+        raise ReaderException(
+            "Did not find LOGLAM or LAMBDA in delta file")
 
     tracers = np.array([Tracer(los_id, ra, dec, deltas_array[index],
                                weights_array[index], log_lambda, z)
@@ -272,9 +291,12 @@ def read_from_hdu(hdul, absorption_line):
     ------
     tracers: array of Tracer
     The loaded tracers
-    """
-    # hdul = fitsio.FITS(input_file)
 
+    Raise
+    -----
+    ReaderException if both LOGLAM and LAMBDA extensions are not
+    in the HDU list
+    """
     tracers = []
     for hdu in hdul[1:]:
         header = hdu.read_header()
@@ -296,7 +318,8 @@ def read_from_hdu(hdul, absorption_line):
             z = lambda_/ABSORBER_IGM.get(absorption_line) - 1.0
             wave_solution = 'lin'
         else:
-            raise KeyError("Did not find LOGLAM or LAMBDA in delta file")
+            raise ReaderException(
+                "Did not find LOGLAM or LAMBDA in delta file")
 
         tracers.append(Tracer(los_id, ra, dec, delta, weights, log_lambda, z))
 
