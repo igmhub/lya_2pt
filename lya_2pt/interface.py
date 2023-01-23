@@ -85,10 +85,10 @@ class Interface:
         cosmo = Cosmology(config["cosmology"])
 
         # parse config
-        settings = parse_config(config['settings'], defaults, accepted_options)
-        self.z_min = settings.getfloat('z_min')
-        self.z_max = settings.getfloat('z_max')
-        self.nside = settings.getint('nside')
+        settings = parse_config(config["settings"], defaults, accepted_options)
+        self.z_min = settings.getfloat("z_min")
+        self.z_max = settings.getfloat("z_max")
+        self.nside = settings.getint("nside")
         # maximum angle for two lines-of-sight to have neightbours
         self.ang_max = compute_ang_max(
             cosmo, settings.getfloat('rt_max'), self.z_min)
@@ -96,7 +96,7 @@ class Interface:
         self.auto_flag = "tracer2" in config
 
         # Find files
-        input_directory = config['tracer1'].get('input_directory')
+        input_directory = config["tracer1"].get("input_directory")
         files = np.array(glob.glob(input_directory + '/*fits*'))
 
         if len(files) < self.mpi_size:
@@ -120,10 +120,11 @@ class Interface:
             tracers1, tracers2 = self.read_tracers(config, file, cosmo)
 
             # do the actual computation
-            output = self.run_computation(config['compute'], tracers1, tracers2)
+            output = self.run_computation(config["compute"], tracers1, tracers2)
 
             # write output
-            self.write_healpix_output(output)
+            healpix_id = int(file.split("delta-")[-1].split(".fits")[0])
+            self.write_healpix_output(config, healpix_id, output)
 
     def read_tracers(self, config, file, cosmo):
         """Read the tracers
@@ -198,12 +199,117 @@ class Interface:
 
         Return
         ------
-        output: array
-        The output from the computation
+        output: ?
+        ?
         """
-        if config.getboolean('compute xi'):
+        if config.getboolean('compute correlation'):
             output = compute_xi(tracers1, tracers2, config)
+        # TODO: add other modes
 
+        return output
 
-    def write_healpix_output(self, output):
-        pass
+    def write_healpix_output(self, config, healpix_id, output):
+        """Write computation output for the main healpix
+
+        Arguments
+        ---------
+        config: configparser.SectionProxy
+        Configuration options
+
+        file: str
+        Name of the read file, used to construct the output file
+
+        output: ?
+        ?
+        """
+        output_directory = config["output"].get("output_directory")
+        filename = output_directory + f"/correlation-{healpix_id}.fits.gz"
+
+        # TODO: Check if this exists already
+        # Ignasi: The idea is to use the same file to save correlation
+        # distortion and metal distortion even if they are computed in
+        # separate runs
+        # If we do this, we should also check that the configuration is
+        # the same in all the runs
+
+        # save data
+        results = fitsio.FITS(filename, 'rw', clobber=True)
+        header = [{
+            'name': 'R_PAR_MIN',
+            'value': cf.r_par_min,
+            'comment': 'Minimum r-parallel [h^-1 Mpc]'
+        }, {
+            'name': 'R_PAR_MAX',
+            'value': cf.r_par_max,
+            'comment': 'Maximum r-parallel [h^-1 Mpc]'
+        }, {
+            'name': 'R_TRANS_MAX',
+            'value': cf.r_trans_max,
+            'comment': 'Maximum r-transverse [h^-1 Mpc]'
+        }, {
+            'name': 'NUM_BINS_R_PAR',
+            'value': cf.num_bins_r_par,
+            'comment': 'Number of bins in r-parallel'
+        }, {
+            'name': 'NUM_BINS_R_TRANS',
+            'value': cf.num_bins_r_trans,
+            'comment': 'Number of bins in r-transverse'
+        }, {
+            'name': 'Z_MIN',
+            'value': cf.z_cut_min,
+            'comment': 'Minimum redshift of pairs'
+        }, {
+            'name': 'Z_MAX',
+            'value': cf.z_cut_max,
+            'comment': 'Maximum redshift of pairs'
+        }, {
+            'name': 'NSIDE',
+            'value': cf.nside,
+            'comment': 'Healpix nside'
+        }, {
+            'name': 'OMEGA_M',
+            'value': args.fid_Om,
+            'comment': 'Omega_matter(z=0) of fiducial LambdaCDM cosmology'
+        }, {
+            'name': 'OMEGA_R',
+            'value': args.fid_Or,
+            'comment': 'Omega_radiation(z=0) of fiducial LambdaCDM cosmology'
+        }, {
+            'name': 'OMEGA_K',
+            'value': args.fid_Ok,
+            'comment': 'Omega_k(z=0) of fiducial LambdaCDM cosmology'
+        }, {
+            'name': 'WL',
+            'value': args.fid_wl,
+            'comment': 'Equation of state of dark energy of fiducial LambdaCDM cosmology'
+        }, {
+            'name': "BLINDING",
+            'value': blinding,
+            'comment': 'String specifying the blinding strategy'
+        }
+        ]
+        results.write(
+            [r_par, r_trans, z, num_pairs],
+            names=['R_PAR', 'R_TRANS', 'Z', 'NUM_PAIRS'],
+            comment=['R-parallel', 'R-transverse', 'Redshift', 'Number of pairs'],
+            units=['h^-1 Mpc', 'h^-1 Mpc', '', ''],
+            header=header,
+            extname='ATTRIBUTES')
+
+        if config["compute"].getboolean('compute correlation'):
+            header2 = [{
+                'name': 'HEALPIX_ID',
+                'value': healpix_id,
+                'comment': 'Healpix id'
+            }]
+            correlation_name = "CORRELATION"
+            if blinding != "none":
+                xi_list_name += "_BLIND"
+            results.write([correlation, weights],
+                          names=[correlation_name, "WEIGHT_SUM"],
+                          comment=['unnormalized correlation', 'Sum of weight'],
+                          header=header2,
+                          extname='CORRELATION')
+
+        # TODO: add other modes
+        results.close()
