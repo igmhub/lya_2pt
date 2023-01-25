@@ -367,7 +367,7 @@ def rebin(log_lambda, deltas, weights, rebin_factor, wave_solution):
         rebin_log_lambda = np.average(log_lambda.reshape(-1, rebin_factor), axis=1)
 
     # do the rebinning
-    bins = find_bins(log_lambda, rebin_log_lambda, wave_solution)
+    bins = find_bins2(log_lambda, rebin_log_lambda, wave_solution)
     binned_arr_size = bins.max() + 1
 
     rebin_deltas = np.bincount(bins, weights=weights * deltas, minlength=binned_arr_size)
