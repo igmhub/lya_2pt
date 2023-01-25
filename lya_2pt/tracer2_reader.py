@@ -54,10 +54,6 @@ class Tracer2Reader:
             raise ReaderException(
                 "Unknown tracer2 type. Must be 'continuous' or 'discrete'.")
 
-    
-    def _read_one_healpix(self, config, file, cosmo, num_cpu):
-        return ForestHealpixReader(config, file, cosmo, num_cpu)
-
     def read_forests(self, config, healpix_neighbours_ids, cosmo, num_cpu):
         """Read continuous tracers from healpix delta files
 
@@ -87,13 +83,13 @@ class Tracer2Reader:
             #     # need to setup logging first, though
             #     pass
 
-        # if num_cpu > 1:
-        #     arguments = [(config, file, cosmo, int(1)) for file in neighbour_files]
-        #     with Pool(processes=num_cpu) as pool:
-        #         results = pool.starmap(self._read_one_healpix, arguments)
-        # else:
-        results = [ForestHealpixReader(config, file, cosmo, num_cpu)
-                    for file in neighbour_files]
+        if num_cpu > 1:
+            arguments = [(config, file, cosmo, int(1)) for file in neighbour_files]
+            with Pool(processes=num_cpu) as pool:
+                results = pool.starmap(ForestHealpixReader, arguments)
+        else:
+            results = [ForestHealpixReader(config, file, cosmo, num_cpu)
+                       for file in neighbour_files]
 
         for healpix_reader in results:
             self.add_tracers(healpix_reader)

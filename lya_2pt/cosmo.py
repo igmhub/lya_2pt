@@ -10,16 +10,16 @@ from lya_2pt.errors import CosmologyError
 from lya_2pt.utils import parse_config
 
 accepted_options = [
-    "H0", "Omega_de", "Omega_m", "m_nu", "Neff", "use h units", "Tcmb", "w0"
+    "hubble", "omega_de", "omega_m", "m_nu", "neff", "use h units", "tcmb", "w0"
 ]
 
 defaults = {
-    "H0": 67.36,
-    "Omega_m": 0.315,
+    "hubble": 67.36,
+    "omega_m": 0.315,
     "m_nu": "0.06;0.0;0.0",
-    "Neff": 3.046,
-    "Tcmb": 2.72548,
-    "Omega_de": None,
+    "neff": 3.046,
+    "tcmb": 2.72548,
+    "omega_de": None,
     "w0": None,
     "use h units": True,
 }
@@ -59,32 +59,32 @@ class Cosmology:
 
         # Initialize the right cosmology object
         if self.Omega_de is None and self.w0 is None:
-            self._cosmo = FlatLambdaCDM(H0=self.config.get("H0"),
-                                        Om0=self.config.get("Omega_m"),
-                                        Tcmb0=self.config.get("Tcmb"),
-                                        Neff=self.config.get("Neff"),
+            self._cosmo = FlatLambdaCDM(H0=self.config.get("hubble"),
+                                        Om0=self.config.get("omega_m"),
+                                        Tcmb0=self.config.get("tcmb"),
+                                        Neff=self.config.get("neff"),
                                         m_nu=self.m_nu * units.electronvolt)
         elif self.w0 is None:
-            self._cosmo = LambdaCDM(H0=self.config.get("H0"),
-                                    Om0=self.config.get("Omega_m"),
+            self._cosmo = LambdaCDM(H0=self.config.get("hubble"),
+                                    Om0=self.config.get("omega_m"),
                                     Ode0=self.Omega_de,
-                                    Tcmb0=self.config.get("Tcmb"),
-                                    Neff=self.config.get("Neff"),
+                                    Tcmb0=self.config.get("tcmb"),
+                                    Neff=self.config.get("neff"),
                                     m_nu=self.m_nu * units.electronvolt)
         elif self.Omega_de is None:
-            self._cosmo = FlatwCDM(H0=self.config.get("H0"),
-                                   Om0=self.config.get("Omega_m"),
+            self._cosmo = FlatwCDM(H0=self.config.get("hubble"),
+                                   Om0=self.config.get("omega_m"),
                                    w0=self.config.get("w0"),
-                                   Tcmb0=self.config.get("Tcmb"),
-                                   Neff=self.config.get("Neff"),
+                                   Tcmb0=self.config.get("tmb"),
+                                   Neff=self.config.get("neff"),
                                    m_nu=self.m_nu * units.electronvolt)
         else:
-            self._cosmo = wCDM(H0=self.config.get("H0"),
-                               Om0=self.config.get("Omega_m"),
+            self._cosmo = wCDM(H0=self.config.get("hubble"),
+                               Om0=self.config.get("omega_m"),
                                Ode0=self.Omega_de,
                                w0=self.w0,
-                               Tcmb0=self.config.get("Tcmb"),
-                               Neff=self.config.get("Neff"),
+                               Tcmb0=self.config.get("tcmb"),
+                               Neff=self.config.get("neff"),
                                m_nu=self.m_nu * units.electronvolt)
 
     def __parse_config(self, config):
@@ -111,17 +111,17 @@ class Cosmology:
             if self.m_nu.size != int(np.floor(config.getfloat("Neff"))):
                 raise CosmologyError(
                     f"Incorrect format for option 'm_nu'. "
-                    f"Expected {np.floor(config.getfloat('Neff'))} masses. "
+                    f"Expected {np.floor(config.getfloat('neff'))} masses. "
                     f"Found {self.m_nu.size}. Read array: {self.m_nu}")
         except TypeError as error:
             raise CosmologyError(
                 f"Incorrect format for option 'm_nu'. Expected a string with "
                 "coma separated numbers") from error
 
-        if config.get('Omega_de') == 'None':
+        if config.get('omega_de') == 'None':
             self.Omega_de = None
         else:
-            self.Omega_de = config.getfloat('Omega_de')
+            self.Omega_de = config.getfloat('omega_de')
 
         if config.get('w0') == 'None':
             self.w0 = None
