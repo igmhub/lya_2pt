@@ -16,12 +16,12 @@ from lya_2pt.utils import parse_config, compute_ang_max
 from lya_2pt.tracer import Tracer
 
 accepted_options = [
-    "input directory", "tracer type", "absorption line", "num processors",
+    "input directory", "type", "absorption line", "num processors",
     "project deltas", "order", "rebin", 
 ]
 
 defaults = {
-    "tracer type": 'continuous',
+    "type": 'continuous',
     "absorption line": "LYA",
     "num processors": 1,
     "project deltas" : True,

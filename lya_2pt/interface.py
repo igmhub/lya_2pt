@@ -96,7 +96,7 @@ class Interface:
         self.auto_flag = "tracer2" in config
 
         # Find files
-        input_directory = config["tracer1"].get("input_directory")
+        input_directory = config["tracer1"].get("input directory")
         files = np.array(glob.glob(input_directory + '/*fits*'))
 
         if len(files) < self.mpi_size:
