@@ -12,7 +12,7 @@ from multiprocessing import Pool
 # why not load ABSORBER_IGM from delta_extraction?
 from lya_2pt.constants import ABSORBER_IGM, ACCEPTED_BLINDING_STRATEGIES
 from lya_2pt.errors import ReaderException
-from lya_2pt.utils import parse_config, find_bins
+from lya_2pt.utils import parse_config, find_bins, get_angle
 from lya_2pt.tracer import Tracer
 
 accepted_options = [
@@ -57,7 +57,7 @@ class ForestHealpixReader:
     tracers: array of Tracer
     The set of tracers for this healpix
     """
-    def __init__(self, config, file, cosmo, num_cpu):
+    def __init__(self, config, file, cosmo, ang_max, num_cpu):
         """Initialize class instance
 
         Arguments
@@ -76,6 +76,7 @@ class ForestHealpixReader:
         ReaderException if the tracer type is not continuous
         ReaderException if the blinding strategy is not valid
         """
+        self.ang_max = ang_max
         # parse configuration
         reader_config = parse_config(config, defaults, accepted_options)
 
@@ -214,7 +215,8 @@ class ForestHealpixReader:
 
             # TODO: This could be vectorized
             for index2, tracer2 in enumerate(other.tracers):
-                if tracer1.check_if_neighbour(tracer2, self.auto_flag, z_min, z_max):
+                if ((get_angle(tracer1, tracer2) < self.ang_max) and
+                    tracer1.check_if_neighbour(tracer2, self.auto_flag, z_min, z_max)):
                     neighbour_mask[index2] = True
 
             tracer1.add_neighbours(neighbour_mask)
