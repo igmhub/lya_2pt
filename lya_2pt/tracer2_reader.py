@@ -86,7 +86,7 @@ class Tracer2Reader:
         if num_cpu > 1:
             arguments = [(config, file, cosmo, int(1)) for file in neighbour_files]
             with Pool(processes=num_cpu) as pool:
-                results = pool.starmap(ForestHealpixReader, arguments)
+                results = pool.starmap(ForestHealpixReader.__init__, arguments)
         else:
             results = [ForestHealpixReader(config, file, cosmo, num_cpu)
                        for file in neighbour_files]
