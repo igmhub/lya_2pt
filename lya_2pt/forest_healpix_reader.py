@@ -7,27 +7,26 @@ from numba import njit
 from healpy import query_disc
 from multiprocessing import Pool
 
-from picca.delta_extraction.utils import ACCEPTED_BLINDING_STRATEGIES
-
 
 # TODO: check this
 # why not load ABSORBER_IGM from delta_extraction?
-from lya_2pt.absorbers import ABSORBER_IGM
+from lya_2pt.constants import ABSORBER_IGM, ACCEPTED_BLINDING_STRATEGIES
 from lya_2pt.errors import ReaderException
 from lya_2pt.utils import parse_config, compute_ang_max
 from lya_2pt.tracer import Tracer
 
 accepted_options = [
-    "absorption line", "num processors", "order",
-    "project deltas", "rebin"
+    "tracer type", "absorption line", "num processors",
+    "project deltas", "order", "rebin", 
 ]
 
 defaults = {
+    "tracer type": 'continuous',
     "absorption line": "LYA",
     "num processors": 1,
     "project deltas" : True,
     "order": 1,
-    "rebin": 1,
+    "rebin": 1
 }
 
 

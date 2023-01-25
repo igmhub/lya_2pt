@@ -1,10 +1,18 @@
 import glob
 import numpy as np
 
+from lya_2pt.utils import parse_config
 from lya_2pt.errors import ReaderException
+from lya_2pt import forest_healpix_reader
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
 from lya_2pt.tracer import Tracer
 
+# Read defaults from the healpix reader and add tracer2 specific options
+accepted_options = forest_healpix_reader.accepted_options
+accepted_options += []
+
+defaults = forest_healpix_reader.defaults
+defaults |= {}
 
 class Tracer2Reader:
     """Read neighbouring healpix files and store a tracers2 list
@@ -59,15 +67,14 @@ class Tracer2Reader:
         cosmo: Cosmology
         Fiducial cosmology used to go from angles and redshift to distances
         """
-        in_dir = self.config.get('input_directory')
+        in_dir = config.get('input_directory')
         files = np.array(glob.glob(in_dir + '/*fits*'))
 
         self.tracers = np.array([], dtype=Tracer)
         for healpix_id in healpix_neighbours_ids:
             file = in_dir + f'delta-{healpix_id}.fits.gz'
             if file in files:
-                healpix_reader = ForestHealpixReader(
-                    self.config['reader'], file, cosmo)
+                healpix_reader = ForestHealpixReader(config['reader'], file, cosmo)
                 self.add_tracers(healpix_reader)
             else:
                 # Print some error message? Or just a warning?
@@ -76,7 +83,7 @@ class Tracer2Reader:
                 # need to setup logging first, though
                 pass
 
-    def read_catalogue(self, healpix_neighbours_ids):
+    def read_catalogue(self, reader_config, healpix_neighbours_ids):
         """Read discrete tracers from catalogue
 
         Arguments
