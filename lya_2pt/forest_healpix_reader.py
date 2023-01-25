@@ -110,11 +110,11 @@ class ForestHealpixReader:
 
         # rebin
         if config.getint("rebin") > 1:
-            if reader_config.getint("num_processors") > 1:
+            if reader_config.getint("num processors") > 1:
                 arguments = [(tracer.log_lambda, tracer.deltas, tracer.weights,
                               config.getint("rebin"), self.wave_solution)
                              for tracer in self.tracers]
-                with Pool(processes=reader_config.getint("num_processors")) as pool:
+                with Pool(processes=reader_config.getint("num processors")) as pool:
                     results = pool.starmap(rebin, arguments)
             else:
                 results = [rebin(tracer.log_lambda, tracer.deltas, tracer.weights,
@@ -127,12 +127,12 @@ class ForestHealpixReader:
                 tracer.weights = weights
 
         # project
-        if config.getboolean("project_deltas"):
-            if reader_config.getint("num_processors") > 1:
+        if config.getboolean("project deltas"):
+            if reader_config.getint("num processors") > 1:
                 arguments = [(tracer.log_lambda, tracer.deltas, tracer.weights,
                               reader_config.getint("order"))
                              for tracer in self.tracers]
-                with Pool(processes=reader_config.getint("num_processors")) as pool:
+                with Pool(processes=reader_config.getint("num processors")) as pool:
                     results = pool.starmap(project_deltas, arguments)
             else:
                 results = [project_deltas(tracer.log_lambda, tracer.deltas, tracer.weights,
