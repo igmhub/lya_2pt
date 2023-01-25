@@ -2,6 +2,7 @@
 to distances
 """
 import numpy as np
+from scipy.interpolate import interp1d
 
 import astropy.units as units
 from astropy.cosmology import FlatLambdaCDM, LambdaCDM, FlatwCDM, wCDM
@@ -87,6 +88,16 @@ class Cosmology:
                                Neff=self.config.get("neff"),
                                m_nu=self.m_nu * units.electronvolt)
 
+        z = np.linspace(0, 10, 1000)
+        comoving_distance = self._cosmo.comoving_distance(z).value
+        comoving_transverse_distance = self._cosmo.comoving_transverse_distance(z).value
+        if self.use_hunits:
+            comoving_distance *= self._cosmo.H0.value / 100
+            comoving_transverse_distance *= self._cosmo.H0.value / 100
+
+        self.comoving_distance = interp1d(z, comoving_distance)
+        self.comoving_transverse_distance = interp1d(z, comoving_distance)
+
     def __parse_config(self, config):
         """Parse the given configuration
 
@@ -130,40 +141,40 @@ class Cosmology:
 
         return config
 
-    def comoving_distance(self, z):
-        """Compute comoving distance D_C(z)
-        Units are either Mpc or Mpc/h depending on the use_hunits flag
+    # def comoving_distance(self, z):
+    #     """Compute comoving distance D_C(z)
+    #     Units are either Mpc or Mpc/h depending on the use_hunits flag
 
-        Arguments
-        ---------
-        z: array of float
-        Redshifts at which to compute the comoving distance
+    #     Arguments
+    #     ---------
+    #     z: array of float
+    #     Redshifts at which to compute the comoving distance
 
-        Return
-        ------
-        distance: array of float
-        Comoving distance D_C(z)
-        """
-        distance = self._cosmo.comoving_distance(z).value
-        if self.use_hunits:
-            distance *= self._cosmo.H0.value / 100
-        return distance
+    #     Return
+    #     ------
+    #     distance: array of float
+    #     Comoving distance D_C(z)
+    #     """
+    #     distance = self._cosmo.comoving_distance(z).value
+    #     if self.use_hunits:
+    #         distance *= self._cosmo.H0.value / 100
+    #     return distance
 
-    def comoving_transverse_distance(self, z):
-        """Compute comoving angular diameter distance D_M(z)
-        Units are either Mpc or Mpc/h depending on the use_hunits flag
+    # def comoving_transverse_distance(self, z):
+    #     """Compute comoving angular diameter distance D_M(z)
+    #     Units are either Mpc or Mpc/h depending on the use_hunits flag
 
-        Arguments
-        ---------
-        z: array of float
-        Redshifts at which to compute the angular diameter distance
+    #     Arguments
+    #     ---------
+    #     z: array of float
+    #     Redshifts at which to compute the angular diameter distance
 
-        Return
-        ------
-        distance: array of float
-        Comoving angular diameter distance D_M(z)
-        """
-        distance = self._cosmo.comoving_transverse_distance(z).value
-        if self.use_hunits:
-            distance *= self._cosmo.H0.value / 100
-        return distance
+    #     Return
+    #     ------
+    #     distance: array of float
+    #     Comoving angular diameter distance D_M(z)
+    #     """
+    #     distance = self._cosmo.comoving_transverse_distance(z).value
+    #     if self.use_hunits:
+    #         distance *= self._cosmo.H0.value / 100
+    #     return distance
