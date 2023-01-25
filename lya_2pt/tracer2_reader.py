@@ -1,5 +1,6 @@
 import glob
 import numpy as np
+from multiprocessing import Pool
 
 from lya_2pt.utils import parse_config
 from lya_2pt.errors import ReaderException
@@ -27,7 +28,7 @@ class Tracer2Reader:
     Attributes
     ----------
     """
-    def __init__(self, config, healpix_neighbours_ids, cosmo):
+    def __init__(self, config, healpix_neighbours_ids, cosmo, num_cpu):
         """Initialize class instance
 
         Arguments
@@ -46,14 +47,14 @@ class Tracer2Reader:
 
         tracer2_type = config.get('type')
         if tracer2_type == 'continuous':
-            self.read_forests(reader_config, healpix_neighbours_ids, cosmo)
+            self.read_forests(reader_config, healpix_neighbours_ids, cosmo, num_cpu)
         elif tracer2_type == 'discrete':
             self.read_catalogue(reader_config, healpix_neighbours_ids)
         else:
             raise ReaderException(
                 "Unknown tracer2 type. Must be 'continuous' or 'discrete'.")
 
-    def read_forests(self, config, healpix_neighbours_ids, cosmo):
+    def read_forests(self, config, healpix_neighbours_ids, cosmo, num_cpu):
         """Read continuous tracers from healpix delta files
 
         Arguments
@@ -71,17 +72,27 @@ class Tracer2Reader:
         files = np.array(glob.glob(in_dir + '/*fits*'))
 
         self.tracers = np.array([], dtype=Tracer)
-        for healpix_id in healpix_neighbours_ids:
-            file = in_dir + f'delta-{healpix_id}.fits.gz'
-            if file in files:
-                healpix_reader = ForestHealpixReader(config, file, cosmo)
-                self.add_tracers(healpix_reader)
-            else:
-                # Print some error message? Or just a warning?
-                # Ignasi: I would add a warning as this will happen occasionally
-                # in the edges of the footprint
-                # need to setup logging first, though
-                pass
+
+        neighbour_files = [in_dir + f'delta-{healpix_id}.fits.gz'
+                           for healpix_id in healpix_neighbours_ids]
+        neighbour_files = [file for file in neighbour_files if file in files]
+            # else:
+            #     # Print some error message? Or just a warning?
+            #     # Ignasi: I would add a warning as this will happen occasionally
+            #     # in the edges of the footprint
+            #     # need to setup logging first, though
+            #     pass
+
+        if num_cpu > 1:
+            arguments = [(config, file, cosmo, int(1)) for file in neighbour_files]
+            with Pool(processes=num_cpu) as pool:
+                results = pool.starmap(ForestHealpixReader, arguments)
+        else:
+            results = [ForestHealpixReader(config, file, cosmo, num_cpu)
+                       for file in neighbour_files]
+
+        for healpix_reader in results:
+            self.add_tracers(healpix_reader)
 
     def read_catalogue(self, reader_config, healpix_neighbours_ids):
         """Read discrete tracers from catalogue

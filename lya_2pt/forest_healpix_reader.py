@@ -16,14 +16,13 @@ from lya_2pt.utils import parse_config, find_bins
 from lya_2pt.tracer import Tracer
 
 accepted_options = [
-    "input directory", "type", "absorption line", "num processors",
+    "input directory", "type", "absorption line",
     "project deltas", "order", "rebin", 
 ]
 
 defaults = {
     "type": 'continuous',
     "absorption line": "LYA",
-    "num processors": 1,
     "project deltas" : True,
     "order": 1,
     "rebin": 1
@@ -58,7 +57,7 @@ class ForestHealpixReader:
     tracers: array of Tracer
     The set of tracers for this healpix
     """
-    def __init__(self, config, file, cosmo):
+    def __init__(self, config, file, cosmo, num_cpu):
         """Initialize class instance
 
         Arguments
@@ -110,11 +109,11 @@ class ForestHealpixReader:
 
         # rebin
         if config.getint("rebin") > 1:
-            if reader_config.getint("num processors") > 1:
+            if num_cpu > 1:
                 arguments = [(tracer.log_lambda, tracer.deltas, tracer.weights,
                               config.getint("rebin"), self.wave_solution)
                              for tracer in self.tracers]
-                with Pool(processes=reader_config.getint("num processors")) as pool:
+                with Pool(processes=num_cpu) as pool:
                     results = pool.starmap(rebin, arguments)
             else:
                 results = [rebin(tracer.log_lambda, tracer.deltas, tracer.weights,
@@ -129,11 +128,11 @@ class ForestHealpixReader:
 
         # project
         if config.getboolean("project deltas"):
-            if reader_config.getint("num processors") > 1:
+            if num_cpu > 1:
                 arguments = [(tracer.log_lambda, tracer.deltas, tracer.weights,
                               reader_config.getint("order"))
                              for tracer in self.tracers]
-                with Pool(processes=reader_config.getint("num processors")) as pool:
+                with Pool(processes=num_cpu) as pool:
                     results = pool.starmap(project_deltas, arguments)
             else:
                 results = [project_deltas(tracer.log_lambda, tracer.deltas, tracer.weights,

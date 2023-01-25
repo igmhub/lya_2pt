@@ -1,4 +1,5 @@
 import glob
+import fitsio
 import numpy as np
 from mpi4py import MPI
 
@@ -11,7 +12,7 @@ from lya_2pt.utils import parse_config, compute_ang_max
 
 accepted_options = [
     "num_bins_rp", "num_bins_rt", "nside", "rp_min", "rp_max", "rt_max",
-    "z_min", "z_max",
+    "z_min", "z_max", "num processors",
 ]
 
 defaults = {
@@ -22,7 +23,8 @@ defaults = {
     "rp_max": 200,
     "rt_max": 200,
     "num_bins_rp": 50,
-    "num_bins_rt": 50
+    "num_bins_rt": 50,
+    "num processors": 1,
 }
 
 
@@ -89,6 +91,7 @@ class Interface:
         self.z_min = settings.getfloat("z_min")
         self.z_max = settings.getfloat("z_max")
         self.nside = settings.getint("nside")
+        self.num_cpu = settings.getint("num processors")
         # maximum angle for two lines-of-sight to have neightbours
         self.ang_max = compute_ang_max(
             cosmo, settings.getfloat('rt_max'), self.z_min)
@@ -117,14 +120,14 @@ class Interface:
         # Loop over the healpixes this thread is responsible for
         for file in files[start:stop]:
             # read tracers
-            tracers1, tracers2 = self.read_tracers(config, file, cosmo)
+            tracers1, tracers2, blinding = self.read_tracers(config, file, cosmo)
 
             # do the actual computation
             output = self.run_computation(config, tracers1, tracers2)
 
             # write output
             healpix_id = int(file.split("delta-")[-1].split(".fits")[0])
-            self.write_healpix_output(config, healpix_id, output)
+            self.write_healpix_output(config, healpix_id, output, blinding)
 
     def read_tracers(self, config, file, cosmo):
         """Read the tracers
@@ -149,7 +152,7 @@ class Interface:
         Second set of tracers
         """
         # read tracers 1
-        forest_reader = ForestHealpixReader(config["tracer1"], file, cosmo)
+        forest_reader = ForestHealpixReader(config["tracer1"], file, cosmo, self.num_cpu)
         healpix_neighbours_ids = forest_reader.find_healpix_neighbours(
             self.nside, self.ang_max)
 
@@ -157,7 +160,7 @@ class Interface:
         if self.auto_flag:
             forest_reader.auto_flag = True
             tracer2_reader = Tracer2Reader(
-                config["tracer1"], healpix_neighbours_ids, cosmo)
+                config["tracer1"], healpix_neighbours_ids, cosmo, self.num_cpu)
             # TODO: check this
             # Ignasi: I'm worried we are adding this twice
             # If healpix_neighbours_ids has the healpix id of tracers1
@@ -171,14 +174,14 @@ class Interface:
         # read tracers 2 - cross correlation
         else:
             tracer2_reader = Tracer2Reader(
-                config["tracer2"], healpix_neighbours_ids, cosmo)
+                config["tracer2"], healpix_neighbours_ids, cosmo, self.num_cpu)
 
         forest_reader.find_neighbours(tracer2_reader, self.z_min, self.z_max)
 
         tracers1 = forest_reader.tracers
         tracers2 = tracer2_reader.tracers
 
-        return tracers1, tracers2
+        return tracers1, tracers2, forest_reader.blinding
 
     def run_computation(self, config, tracers1, tracers2):
         """Run the computation
@@ -204,12 +207,12 @@ class Interface:
         """
         output = None
         if config['compute'].getboolean('compute correlation'):
-            output = compute_xi(tracers1, tracers2, config['settings'])
+            output = compute_xi(tracers1, tracers2, config['settings'], self.num_cpu)
         # TODO: add other modes
 
         return output
 
-    def write_healpix_output(self, config, healpix_id, output):
+    def write_healpix_output(self, config, healpix_id, output, blinding):
         """Write computation output for the main healpix
 
         Arguments
@@ -223,7 +226,7 @@ class Interface:
         output: ?
         ?
         """
-        output_directory = config["output"].get("output_directory")
+        output_directory = config["output"].get("output directory")
         filename = output_directory + f"/correlation-{healpix_id}.fits.gz"
 
         # TODO: Check if this exists already
@@ -237,52 +240,40 @@ class Interface:
         results = fitsio.FITS(filename, 'rw', clobber=True)
         header = [{
             'name': 'R_PAR_MIN',
-            'value': cf.r_par_min,
+            'value': config['settings'].getfloat('rp_min'),
             'comment': 'Minimum r-parallel [h^-1 Mpc]'
         }, {
             'name': 'R_PAR_MAX',
-            'value': cf.r_par_max,
+            'value': config['settings'].getfloat('rp_max'),
             'comment': 'Maximum r-parallel [h^-1 Mpc]'
         }, {
             'name': 'R_TRANS_MAX',
-            'value': cf.r_trans_max,
+            'value': config['settings'].getfloat('rt_max'),
             'comment': 'Maximum r-transverse [h^-1 Mpc]'
         }, {
             'name': 'NUM_BINS_R_PAR',
-            'value': cf.num_bins_r_par,
+            'value': config['settings'].getint('num_bins_rp'),
             'comment': 'Number of bins in r-parallel'
         }, {
             'name': 'NUM_BINS_R_TRANS',
-            'value': cf.num_bins_r_trans,
+            'value': config['settings'].getint('num_bins_rt'),
             'comment': 'Number of bins in r-transverse'
         }, {
             'name': 'Z_MIN',
-            'value': cf.z_cut_min,
+            'value': config['settings'].getfloat('z_min'),
             'comment': 'Minimum redshift of pairs'
         }, {
             'name': 'Z_MAX',
-            'value': cf.z_cut_max,
+            'value': config['settings'].getfloat('z_max'),
             'comment': 'Maximum redshift of pairs'
         }, {
             'name': 'NSIDE',
-            'value': cf.nside,
+            'value': config['settings'].getint('nside'),
             'comment': 'Healpix nside'
         }, {
             'name': 'OMEGA_M',
-            'value': args.fid_Om,
+            'value': config['cosmology'].getfloat('Omega_m'),
             'comment': 'Omega_matter(z=0) of fiducial LambdaCDM cosmology'
-        }, {
-            'name': 'OMEGA_R',
-            'value': args.fid_Or,
-            'comment': 'Omega_radiation(z=0) of fiducial LambdaCDM cosmology'
-        }, {
-            'name': 'OMEGA_K',
-            'value': args.fid_Ok,
-            'comment': 'Omega_k(z=0) of fiducial LambdaCDM cosmology'
-        }, {
-            'name': 'WL',
-            'value': args.fid_wl,
-            'comment': 'Equation of state of dark energy of fiducial LambdaCDM cosmology'
         }, {
             'name': "BLINDING",
             'value': blinding,
@@ -290,7 +281,7 @@ class Interface:
         }
         ]
         results.write(
-            [r_par, r_trans, z, num_pairs],
+            [output[2], output[3], output[4], output[5]],
             names=['R_PAR', 'R_TRANS', 'Z', 'NUM_PAIRS'],
             comment=['R-parallel', 'R-transverse', 'Redshift', 'Number of pairs'],
             units=['h^-1 Mpc', 'h^-1 Mpc', '', ''],
@@ -305,8 +296,8 @@ class Interface:
             }]
             correlation_name = "CORRELATION"
             if blinding != "none":
-                xi_list_name += "_BLIND"
-            results.write([correlation, weights],
+                correlation_name += "_BLIND"
+            results.write([output[0], output[1]],
                           names=[correlation_name, "WEIGHT_SUM"],
                           comment=['unnormalized correlation', 'Sum of weight'],
                           header=header2,
