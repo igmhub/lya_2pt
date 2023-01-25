@@ -49,11 +49,11 @@ def compute_xi(tracers1, tracers2, config, num_cpu):
         results = pool.starmap(_compute_xi_kernel, arguments)
 
     results = np.array(results)
-    xi_grid = np.sum(results[:, 0, :], axis=0)
+    xi_grid = np.sum(results[:, 0, :] * results[:, 1, :], axis=0)
     weights_grid = np.sum(results[:, 1, :], axis=0)
-    rp_grid = np.sum(results[:, 2, :], axis=0)
-    rt_grid = np.sum(results[:, 3, :], axis=0)
-    z_grid = np.sum(results[:, 4, :], axis=0)
+    rp_grid = np.sum(results[:, 2, :] * results[:, 1, :], axis=0)
+    rt_grid = np.sum(results[:, 3, :] * results[:, 1, :], axis=0)
+    z_grid = np.sum(results[:, 4, :] * results[:, 1, :], axis=0)
     num_pairs_grid = np.sum(results[:, 5, :], axis=0)
 
     w = weights_grid > 0
