@@ -120,7 +120,7 @@ class Interface:
             tracers1, tracers2 = self.read_tracers(config, file, cosmo)
 
             # do the actual computation
-            output = self.run_computation(config["compute"], tracers1, tracers2)
+            output = self.run_computation(config, tracers1, tracers2)
 
             # write output
             healpix_id = int(file.split("delta-")[-1].split(".fits")[0])
@@ -180,7 +180,7 @@ class Interface:
 
         return tracers1, tracers2
 
-    def run_computation(config, tracers1, tracers2):
+    def run_computation(self, config, tracers1, tracers2):
         """Run the computation
 
         This can include the correlation function, the distortion matrix,
@@ -202,8 +202,9 @@ class Interface:
         output: ?
         ?
         """
-        if config.getboolean('compute correlation'):
-            output = compute_xi(tracers1, tracers2, config)
+        output = None
+        if config['compute'].getboolean('compute correlation'):
+            output = compute_xi(tracers1, tracers2, config['settings'])
         # TODO: add other modes
 
         return output
