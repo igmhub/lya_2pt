@@ -108,7 +108,7 @@ class Cosmology:
         # special check: m_nu format
         try:
             self.m_nu = np.array(np.fromstring(config.get("m_nu"), sep=";"))
-            if self.m_nu.size != int(np.floor(config.getfloat("Neff"))):
+            if self.m_nu.size != int(np.floor(config.getfloat("neff"))):
                 raise CosmologyError(
                     f"Incorrect format for option 'm_nu'. "
                     f"Expected {np.floor(config.getfloat('neff'))} masses. "
