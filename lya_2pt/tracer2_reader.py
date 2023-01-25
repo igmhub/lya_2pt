@@ -67,7 +67,7 @@ class Tracer2Reader:
         cosmo: Cosmology
         Fiducial cosmology used to go from angles and redshift to distances
         """
-        in_dir = config.get('input_directory')
+        in_dir = config.get('input directory')
         files = np.array(glob.glob(in_dir + '/*fits*'))
 
         self.tracers = np.array([], dtype=Tracer)

@@ -93,7 +93,7 @@ class Interface:
         self.ang_max = compute_ang_max(
             cosmo, settings.getfloat('rt_max'), self.z_min)
         # check if we are working with an auto-correlation
-        self.auto_flag = "tracer2" in config
+        self.auto_flag = "tracer2" not in config
 
         # Find files
         input_directory = config["tracer1"].get("input directory")
@@ -155,7 +155,7 @@ class Interface:
 
         # read tracers 2 - auto correlation
         if self.auto_flag:
-            tracer1.auto_flag = True
+            forest_reader.auto_flag = True
             tracer2_reader = Tracer2Reader(
                 config["tracer1"], healpix_neighbours_ids, cosmo)
             # TODO: check this
@@ -167,7 +167,7 @@ class Interface:
             # To fix this, we should use auto_flag in method find_healpix_neighbours
             # to not include the main healpix in the list of healpixes
             # We could then initialize forest_reader.auto_flag in that function
-            tracer2_reader.add_tracers1(forest_reader)
+            tracer2_reader.add_tracers(forest_reader)
         # read tracers 2 - cross correlation
         else:
             tracer2_reader = Tracer2Reader(
