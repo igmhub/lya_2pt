@@ -264,10 +264,11 @@ def read_from_image(hdul, absorption_line):
         raise ReaderException(
             "Did not find LOGLAM or LAMBDA in delta file")
 
-    tracers = np.array([Tracer(los_id, ra, dec, deltas_array[index],
-                               weights_array[index], log_lambda, z)
-                        for index, (los_id, ra, dec)
-                        in enumerate(zip(los_id_array, ra_array, dec_array))])
+    tracers = np.empty(los_id_array.shape, dtype=Tracer)
+    for i, (los_id, ra, dec) in enumerate(zip(los_id_array, ra_array, dec_array)):
+        mask = np.isnan(deltas_array[i])
+        tracers[i] = Tracer(los_id, ra, dec, deltas_array[i][mask],
+                            weights_array[i][mask], log_lambda[mask], z)
 
     return tracers, wave_solution
 
