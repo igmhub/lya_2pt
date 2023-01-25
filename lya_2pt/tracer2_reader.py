@@ -87,13 +87,13 @@ class Tracer2Reader:
             #     # need to setup logging first, though
             #     pass
 
-        if num_cpu > 1:
-            arguments = [(config, file, cosmo, int(1)) for file in neighbour_files]
-            with Pool(processes=num_cpu) as pool:
-                results = pool.starmap(self._read_one_healpix, arguments)
-        else:
-            results = [ForestHealpixReader(config, file, cosmo, num_cpu)
-                       for file in neighbour_files]
+        # if num_cpu > 1:
+        #     arguments = [(config, file, cosmo, int(1)) for file in neighbour_files]
+        #     with Pool(processes=num_cpu) as pool:
+        #         results = pool.starmap(self._read_one_healpix, arguments)
+        # else:
+        results = [ForestHealpixReader(config, file, cosmo, num_cpu)
+                    for file in neighbour_files]
 
         for healpix_reader in results:
             self.add_tracers(healpix_reader)
