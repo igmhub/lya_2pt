@@ -125,6 +125,7 @@ class ForestHealpixReader:
                 tracer.log_lambda = log_lambda
                 tracer.deltas = deltas
                 tracer.weights = weights
+                tracer.z = 10**log_lambda/ABSORBER_IGM.get(absorption_line) - 1.0
 
         # project
         if config.getboolean("project deltas"):

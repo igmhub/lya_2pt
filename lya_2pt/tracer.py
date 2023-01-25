@@ -120,6 +120,7 @@ class Tracer:
         cosmo: lya_2pt.cosmo.Cosmology
         Cosmology used to convert angles and redshifts to distances
         """
+        assert self.z.shape == self.deltas.shape
         self.comoving_distance = cosmo.comoving_distance(self.z)
         self.comoving_transverse_distance = cosmo.comoving_transverse_distance(self.z)
 
