@@ -12,7 +12,7 @@ from multiprocessing import Pool
 # why not load ABSORBER_IGM from delta_extraction?
 from lya_2pt.constants import ABSORBER_IGM, ACCEPTED_BLINDING_STRATEGIES
 from lya_2pt.errors import ReaderException
-from lya_2pt.utils import parse_config, find_bins2
+from lya_2pt.utils import parse_config, find_bins
 from lya_2pt.tracer import Tracer
 
 accepted_options = [
@@ -325,7 +325,7 @@ def read_from_hdu(hdul, absorption_line):
     return np.array(tracers), wave_solution
 
 
-@njit()
+# @njit()
 def rebin(log_lambda, deltas, weights, rebin_factor, wave_solution):
     """Rebin a Tracer by combining N pixels together
 
@@ -367,7 +367,7 @@ def rebin(log_lambda, deltas, weights, rebin_factor, wave_solution):
         rebin_log_lambda = np.average(log_lambda.reshape(-1, rebin_factor), axis=1)
 
     # do the rebinning
-    bins = find_bins2(log_lambda, rebin_log_lambda, wave_solution)
+    bins = find_bins(log_lambda, rebin_log_lambda, wave_solution)
     binned_arr_size = bins.max() + 1
 
     rebin_deltas = np.bincount(bins, weights=weights * deltas, minlength=binned_arr_size)
