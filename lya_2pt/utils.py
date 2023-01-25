@@ -1,4 +1,5 @@
 import numpy as np
+from numba import njit
 
 from lya_2pt.errors import ParserError
 
@@ -119,3 +120,45 @@ def get_angle(tracer1, tracer2):
                         + (np.cos(tracer1.dec) * (tracer2.ra - tracer1.ra))**2)
 
     return angle
+
+
+@njit()
+def find_bins(original_array, grid_array, wave_solution):
+    """For each element in original_array, find the corresponding bin in grid_array
+    Arguments
+    ---------
+    original_array: array of float
+    Read array, e.g. forest.log_lambda
+    grid_array: array of float
+    Common array, e.g. Forest.log_lambda_grid
+    wave_solution: "log" or "lin"
+    Specifies whether we want to construct a wavelength grid that is evenly
+    spaced on wavelength (lin) or on the logarithm of the wavelength (log)
+    Return
+    ------
+    found_bin: array of int
+    An array of size original_array.size filled with values smaller than
+    grid_array.size with the bins correspondance
+    """
+    if wave_solution == "log":
+        pass
+    elif wave_solution == "lin":
+        original_array = 10**original_array
+        grid_array = 10**grid_array
+    else:  # Update this error with a local one
+        raise ValueError(
+            "Error in function find_bins from py/picca/delta_extraction/utils.py"
+            "expected wavelength solution to be either 'log' or 'lin'. ")
+    original_array_size = original_array.size
+    grid_array_size = grid_array.size
+    found_bin = np.zeros(original_array_size, dtype=np.int64)
+    for index1 in range(original_array_size):
+        min_dist = np.finfo(np.float64).max
+        for index2 in range(grid_array_size):
+            dist = np.abs(grid_array[index2] - original_array[index1])
+            if dist < min_dist:
+                min_dist = dist
+                found_bin[index1] = index2
+            else:
+                break
+    return found_bin
