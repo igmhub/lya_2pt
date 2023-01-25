@@ -74,7 +74,7 @@ class Tracer2Reader:
         for healpix_id in healpix_neighbours_ids:
             file = in_dir + f'delta-{healpix_id}.fits.gz'
             if file in files:
-                healpix_reader = ForestHealpixReader(config['reader'], file, cosmo)
+                healpix_reader = ForestHealpixReader(config, file, cosmo)
                 self.add_tracers(healpix_reader)
             else:
                 # Print some error message? Or just a warning?
