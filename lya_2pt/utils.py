@@ -1,5 +1,5 @@
 import numpy as np
-# from numba import njit
+from numba import njit
 
 from lya_2pt.errors import ParserError, FindBinsError
 
@@ -122,7 +122,7 @@ def get_angle(tracer1, tracer2):
     return angle
 
 
-# @njit()
+@njit()
 def find_bins(original_array, grid_array, wave_solution):
     """For each element in original_array, find the corresponding bin in grid_array
     Arguments
