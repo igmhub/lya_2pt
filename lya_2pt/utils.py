@@ -4,6 +4,7 @@ from lya_2pt.errors import ParserError
 
 SMALL_ANGLE_CUT_OFF = 2./3600.*np.pi/180. # 2 arcsec
 
+
 def parse_config(config, defaults, accepted_options):
     """Parse the given configuration
 

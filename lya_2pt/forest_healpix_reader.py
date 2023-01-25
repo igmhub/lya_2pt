@@ -18,7 +18,7 @@ from lya_2pt.utils import parse_config, compute_ang_max
 from lya_2pt.tracer import Tracer
 
 accepted_options = [
-    "absorption line", "auto flag", "num processors", "order",
+    "absorption line", "num processors", "order",
     "project deltas", "rebin"
 ]
 
