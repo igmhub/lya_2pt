@@ -152,7 +152,8 @@ class Interface:
         Second set of tracers
         """
         # read tracers 1
-        forest_reader = ForestHealpixReader(config["tracer1"], file, cosmo, self.num_cpu)
+        forest_reader = ForestHealpixReader(config["tracer1"], file, cosmo,
+                                            self.num_cpu, self.ang_max)
         healpix_neighbours_ids = forest_reader.find_healpix_neighbours(
             self.nside, self.ang_max)
 
