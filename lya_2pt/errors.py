@@ -20,3 +20,9 @@ class ParserError(Exception):
     """
         Exceptions occurred in parsing
     """
+
+class FindBinsError(Exception):
+    """
+        Exceptions occurred in parsing
+    """
+

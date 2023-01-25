@@ -1,7 +1,7 @@
 import numpy as np
 from numba import njit
 
-from lya_2pt.errors import ParserError
+from lya_2pt.errors import ParserError, FindBinsError
 
 SMALL_ANGLE_CUT_OFF = 2./3600.*np.pi/180. # 2 arcsec
 
@@ -145,8 +145,8 @@ def find_bins(original_array, grid_array, wave_solution):
     elif wave_solution == "lin":
         original_array = 10**original_array
         grid_array = 10**grid_array
-    else:  # Update this error with a local one
-        raise ValueError(
+    else:
+        raise FindBinsError(
             "Error in function find_bins from py/picca/delta_extraction/utils.py"
             "expected wavelength solution to be either 'log' or 'lin'. ")
     original_array_size = original_array.size
