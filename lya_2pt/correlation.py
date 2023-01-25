@@ -1,5 +1,5 @@
 import numpy as np
-from numba import jit, int32
+from numba import njit, int32
 from multiprocessing import Pool
 from lya_2pt.utils import get_angle
 
@@ -65,6 +65,7 @@ def compute_xi(tracers1, tracers2, config, num_cpu):
     return xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid
 
 
+@njit
 def compute_xi_pair(deltas1, weights1, z1, dc1, dm1, deltas2, weights2, z2, dc2, dm2,
                     angle, rp_min, rp_max, rt_max, rp_size, rt_size,
                     xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid):
