@@ -57,7 +57,7 @@ class ForestHealpixReader:
     tracers: array of Tracer
     The set of tracers for this healpix
     """
-    def __init__(self, config, file, cosmo, num_cpu, ang_max=None):
+    def __init__(self, config, file, cosmo, num_cpu, healpix_id):
         """Initialize class instance
 
         Arguments
@@ -76,9 +76,9 @@ class ForestHealpixReader:
         ReaderException if the tracer type is not continuous
         ReaderException if the blinding strategy is not valid
         """
-        self.ang_max = ang_max
         # parse configuration
         reader_config = parse_config(config, defaults, accepted_options)
+        self.healpix_id = healpix_id
 
         # extract parameters from config
         absorption_line = reader_config.get("absorption line")
@@ -171,19 +171,19 @@ class ForestHealpixReader:
             raise ReaderException(
                 "In ForestHealpixReader, self.tracer should not be None")
 
-        # TODO We need to initialize nside (read from config) and ang_max (compute using cosmo)
         neighbour_ids = set()
         for tracer in self.tracers:
-            tracer_neighbour_ids = query_disc(
-                nside,
-                [tracer.x_cart, tracer.y_cart, tracer.z_cart],
-                ang_max,
-                inclusive=True)
+            tracer_neighbour_ids = query_disc(nside, [tracer.x_cart, tracer.y_cart, tracer.z_cart],
+                                              ang_max, inclusive=True)
             neighbour_ids = neighbour_ids.union(set(tracer_neighbour_ids))
 
-        return np.array(list(neighbour_ids))
+        neighbour_ids = np.array(list(neighbour_ids))
+        if self.healpix_id in neighbour_ids:
+            np.delete(neighbour_ids, np.where(neighbour_ids == self.healpix_id))
 
-    def find_neighbours(self, other, z_min, z_max):
+        return neighbour_ids
+
+    def find_neighbours(self, other, z_min, z_max, ang_max):
         """For each tracer, find neighbouring tracers. Keep the results in
         tracer.neighbours
 
@@ -203,7 +203,6 @@ class ForestHealpixReader:
         ReaderException if the self.tracers is None
         ReaderException if the other.tracers is None
         """
-        assert self.ang_max is not None
         if self.tracers is None:
             raise ReaderException(
                 "In ForestHealpixReader, self.tracer should not be None")
@@ -216,9 +215,8 @@ class ForestHealpixReader:
 
             # TODO: This could be vectorized
             for index2, tracer2 in enumerate(other.tracers):
-                if ((get_angle(tracer1, tracer2) < self.ang_max) and
+                if ((get_angle(tracer1, tracer2) < ang_max) and
                     tracer1.check_if_neighbour(tracer2, self.auto_flag, z_min, z_max)):
-
                     neighbour_mask[index2] = True
 
             tracer1.add_neighbours(neighbour_mask)

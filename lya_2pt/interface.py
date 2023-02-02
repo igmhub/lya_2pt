@@ -119,17 +119,19 @@ class Interface:
 
         # Loop over the healpixes this thread is responsible for
         for file in files[start:stop]:
+            # Figure out healpix id of the file
+            healpix_id = int(file.split("delta-")[-1].split(".fits")[0])
+
             # read tracers
-            tracers1, tracers2, blinding = self.read_tracers(config, file, cosmo)
+            tracers1, tracers2, blinding = self.read_tracers(config, file, cosmo, healpix_id)
 
             # do the actual computation
             output = self.run_computation(config, tracers1, tracers2)
 
             # write output
-            healpix_id = int(file.split("delta-")[-1].split(".fits")[0])
             self.write_healpix_output(config, healpix_id, output, blinding)
 
-    def read_tracers(self, config, file, cosmo):
+    def read_tracers(self, config, file, cosmo, healpix_id):
         """Read the tracers
 
         Arguments
@@ -153,7 +155,7 @@ class Interface:
         """
         # read tracers 1
         forest_reader = ForestHealpixReader(config["tracer1"], file, cosmo,
-                                            self.num_cpu, self.ang_max)
+                                            self.num_cpu, healpix_id)
         healpix_neighbours_ids = forest_reader.find_healpix_neighbours(
             self.nside, self.ang_max)
 
