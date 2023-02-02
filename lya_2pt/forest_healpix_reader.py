@@ -180,7 +180,7 @@ class ForestHealpixReader:
 
         neighbour_ids = np.array(list(neighbour_ids))
         if self.healpix_id in neighbour_ids:
-            np.delete(neighbour_ids, np.where(neighbour_ids == self.healpix_id))
+            neighbour_ids = np.delete(neighbour_ids, np.where(neighbour_ids == self.healpix_id))
 
         return neighbour_ids
 
