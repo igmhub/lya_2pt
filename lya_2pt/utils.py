@@ -89,37 +89,53 @@ def compute_ang_max(cosmo, rt_max, z_min, z_min2=None):
     return ang_max
 
 
-def get_angle(tracer1, tracer2):
-    """Compute angle between two tracers of Tracer type
-
-    Arguments
-    ---------
-    tracer1 : Tracer
-    First tracer
-
-    tracer2 : Tracer
-    Second tracer
-
-    Return
-    ------
-    angle: float
-    Angle between tracer1 and tracer2
-    """
-    cos = (tracer2.x_cart * tracer1.x_cart + tracer2.y_cart * tracer1.y_cart
-           + tracer2.z_cart * tracer1.z_cart)
-
+@njit
+def get_angle(x1, y1, z1, ra1, dec1, x2, y2, z2, ra2, dec2):
+    """Compute angle between two tracers"""
+    cos = x1 * x2 + y1 * y2 + z1 * z2
     if cos >= 1.:
         cos = 1.
     elif cos <= -1.:
         cos = -1.
     angle = np.arccos(cos)
 
-    if ((np.abs(tracer2.ra - tracer1.ra) < SMALL_ANGLE_CUT_OFF)
-      & (np.abs(tracer2.dec - tracer1.dec) < SMALL_ANGLE_CUT_OFF)):
-        angle = np.sqrt((tracer2.dec - tracer1.dec)**2
-                        + (np.cos(tracer1.dec) * (tracer2.ra - tracer1.ra))**2)
+    if ((np.abs(ra2 - ra1) < SMALL_ANGLE_CUT_OFF) & (np.abs(dec2 - dec1) < SMALL_ANGLE_CUT_OFF)):
+        angle = np.sqrt((dec2 - dec1)**2 + (np.cos(dec1) * (ra2 - ra1))**2)
 
     return angle
+
+
+# def get_angle(tracer1, tracer2):
+#     """Compute angle between two tracers of Tracer type
+
+#     Arguments
+#     ---------
+#     tracer1 : Tracer
+#     First tracer
+
+#     tracer2 : Tracer
+#     Second tracer
+
+#     Return
+#     ------
+#     angle: float
+#     Angle between tracer1 and tracer2
+#     """
+#     cos = (tracer2.x_cart * tracer1.x_cart + tracer2.y_cart * tracer1.y_cart
+#            + tracer2.z_cart * tracer1.z_cart)
+
+#     if cos >= 1.:
+#         cos = 1.
+#     elif cos <= -1.:
+#         cos = -1.
+#     angle = np.arccos(cos)
+
+#     if ((np.abs(tracer2.ra - tracer1.ra) < SMALL_ANGLE_CUT_OFF)
+#       & (np.abs(tracer2.dec - tracer1.dec) < SMALL_ANGLE_CUT_OFF)):
+#         angle = np.sqrt((tracer2.dec - tracer1.dec)**2
+#                         + (np.cos(tracer1.dec) * (tracer2.ra - tracer1.ra))**2)
+
+#     return angle
 
 
 @njit()

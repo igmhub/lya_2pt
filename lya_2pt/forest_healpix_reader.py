@@ -184,7 +184,7 @@ class ForestHealpixReader:
 
         return neighbour_ids
 
-    def find_neighbours(self, other, z_min, z_max, ang_max):
+    def find_neighbours(self, other, z_min, z_max, ang_max, num_cpu):
         """For each tracer, find neighbouring tracers. Keep the results in
         tracer.neighbours
 
@@ -216,8 +216,11 @@ class ForestHealpixReader:
 
             # TODO: This could be vectorized
             for index2, tracer2 in enumerate(other.tracers):
-                if ((get_angle(tracer1, tracer2) < ang_max) and
-                    tracer1.check_if_neighbour(tracer2, self.auto_flag, z_min, z_max)):
+                angle = get_angle(tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra,
+                                  tracer1.dec, tracer2.x_cart, tracer2.y_cart, tracer2.z_cart,
+                                  tracer2.ra, tracer2.dec)
+                if ((angle < ang_max) and tracer1.check_if_neighbour(tracer2, self.auto_flag,
+                                                                     z_min, z_max)):
                     neighbour_mask[index2] = True
 
             tracer1.add_neighbours(neighbour_mask)
