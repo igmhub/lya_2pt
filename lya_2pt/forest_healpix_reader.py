@@ -57,7 +57,7 @@ class ForestHealpixReader:
     tracers: array of Tracer
     The set of tracers for this healpix
     """
-    def __init__(self, config, file, cosmo, num_cpu, healpix_id):
+    def __init__(self, config, file, cosmo, num_cpu, healpix_id=None):
         """Initialize class instance
 
         Arguments
@@ -167,6 +167,7 @@ class ForestHealpixReader:
         -----
         ReaderException if the self.tracers is None
         """
+        assert self.healpix_id is not None
         if self.tracers is None:
             raise ReaderException(
                 "In ForestHealpixReader, self.tracer should not be None")
