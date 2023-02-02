@@ -184,7 +184,7 @@ class ForestHealpixReader:
 
         return neighbour_ids
 
-    def find_neighbours(self, other, z_min, z_max, ang_max, num_cpu):
+    def find_neighbours(self, other, z_min, z_max, ang_max):
         """For each tracer, find neighbouring tracers. Keep the results in
         tracer.neighbours
 
