@@ -179,7 +179,8 @@ class Interface:
             tracer2_reader = Tracer2Reader(
                 config["tracer2"], healpix_neighbours_ids, cosmo, self.num_cpu)
 
-        forest_reader.find_neighbours(tracer2_reader, self.z_min, self.z_max)
+        forest_reader.find_neighbours(tracer2_reader, self.z_min, self.z_max,
+                                      self.ang_max, self.num_cpu)
 
         tracers1 = forest_reader.tracers
         tracers2 = tracer2_reader.tracers
