@@ -2,26 +2,24 @@
 to distances
 """
 import numpy as np
+from numba import jit, float64
 from scipy.interpolate import interp1d
-
-import astropy.units as units
-from astropy.cosmology import FlatLambdaCDM, LambdaCDM, FlatwCDM, wCDM
+from scipy.integrate import quad
+from scipy.constants import speed_of_light
 
 from lya_2pt.errors import CosmologyError
 from lya_2pt.utils import parse_config
 
 accepted_options = [
-    "hubble", "omega_de", "omega_m", "m_nu", "neff", "use h units", "tcmb", "w0"
+    "hubble", "omega_m", "omega_k", "omega_r", "use h units", "w0"
 ]
 
 defaults = {
     "hubble": 67.36,
     "omega_m": 0.315,
-    "m_nu": "0.06;0.0;0.0",
-    "neff": 3.046,
-    "tcmb": 2.72548,
-    "omega_de": None,
-    "w0": None,
+    "omega_k": 0.0,
+    "omega_r": 7.963219132297603e-05,
+    "w0": -1,
     "use h units": True,
 }
 
@@ -54,127 +52,105 @@ class Cosmology:
         config: configparser.SectionProxy
         Configuration options
         """
-        self.config = self.__parse_config(config)
+        config = parse_config(config, defaults, accepted_options)
 
-        self.use_hunits = self.config.getboolean("use h units")
+        self.use_hunits = config.getboolean("use h units")
+        self._hubble = config.getfloat('hubble')
+        self._hubble_distance = (speed_of_light / 1000 / self._hubble)
+        self._Omega_k = config.getfloat('omega_k')
 
-        # Initialize the right cosmology object
-        if self.Omega_de is None and self.w0 is None:
-            self._cosmo = FlatLambdaCDM(H0=self.config.get("hubble"),
-                                        Om0=self.config.get("omega_m"),
-                                        Tcmb0=self.config.get("tcmb"),
-                                        Neff=self.config.get("neff"),
-                                        m_nu=self.m_nu * units.electronvolt)
-        elif self.w0 is None:
-            self._cosmo = LambdaCDM(H0=self.config.get("hubble"),
-                                    Om0=self.config.get("omega_m"),
-                                    Ode0=self.Omega_de,
-                                    Tcmb0=self.config.get("tcmb"),
-                                    Neff=self.config.get("neff"),
-                                    m_nu=self.m_nu * units.electronvolt)
-        elif self.Omega_de is None:
-            self._cosmo = FlatwCDM(H0=self.config.get("hubble"),
-                                   Om0=self.config.get("omega_m"),
-                                   w0=self.config.get("w0"),
-                                   Tcmb0=self.config.get("tmb"),
-                                   Neff=self.config.get("neff"),
-                                   m_nu=self.m_nu * units.electronvolt)
-        else:
-            self._cosmo = wCDM(H0=self.config.get("hubble"),
-                               Om0=self.config.get("omega_m"),
-                               Ode0=self.Omega_de,
-                               w0=self.w0,
-                               Tcmb0=self.config.get("tcmb"),
-                               Neff=self.config.get("neff"),
-                               m_nu=self.m_nu * units.electronvolt)
+        # Omega_m, Omega_r, Omega_k, w
+        self._inv_efunc_args = (config.getfloat('omega_m'), config.getfloat('omega_r'),
+                                self._Omega_k, config.getfloat('w0'))
+
 
         z = np.linspace(0, 10, 1000)
-        comoving_distance = self._cosmo.comoving_distance(z).value
-        comoving_transverse_distance = self._cosmo.comoving_transverse_distance(z).value
+        comoving_distance = self._comoving_distance(z)
+        comoving_transverse_distance = self._comoving_transverse_distance(z)
         if self.use_hunits:
-            comoving_distance *= self._cosmo.H0.value / 100
-            comoving_transverse_distance *= self._cosmo.H0.value / 100
+            comoving_distance *= self._hubble / 100
+            comoving_transverse_distance *= self._hubble / 100
 
         self.comoving_distance = interp1d(z, comoving_distance)
         self.comoving_transverse_distance = interp1d(z, comoving_distance)
 
-    def __parse_config(self, config):
-        """Parse the given configuration
+    def _comoving_distance_scalar(self, z):
+        """Compute integral of inverse efunc for a scalar input redshift
 
-        Check that all required variables are present
-        Load default values for missing optional variables
+        Parameters
+        ----------
+        z : float
+            Target redshift
 
-        Arguments
-        ---------
-        config: configparser.SectionProxy
-        Configuration options
-
-        Return
-        ------
-        config: configparser.SectionProxy
-        Parsed options to initialize class
+        Returns
+        -------
+        float
+            Integral of inverse efunc between redshift 0 and input redshift
         """
-        config = parse_config(config, defaults, accepted_options)
+        return quad(inv_efunc, 0, z, args=self._inv_efunc_args)[0]
 
-        # special check: m_nu format
-        try:
-            self.m_nu = np.array(np.fromstring(config.get("m_nu"), sep=";"))
-            if self.m_nu.size != int(np.floor(config.getfloat("neff"))):
-                raise CosmologyError(
-                    f"Incorrect format for option 'm_nu'. "
-                    f"Expected {np.floor(config.getfloat('neff'))} masses. "
-                    f"Found {self.m_nu.size}. Read array: {self.m_nu}")
-        except TypeError as error:
-            raise CosmologyError(
-                f"Incorrect format for option 'm_nu'. Expected a string with "
-                "coma separated numbers") from error
+    def _comoving_distance(self, z):
+        """Compute comoving distance to target redshifts
 
-        if config.get('omega_de') == 'None':
-            self.Omega_de = None
+        Parameters
+        ----------
+        z : float or array
+            Target redshifts
+
+        Returns
+        -------
+        float or array
+            Comoving distances between redshift 0 and input redshifts
+        """
+        if isinstance(z, (list, tuple, np.ndarray)):
+            return self._hubble_distance * np.array([self._comoving_distance_scalar(z_scalar)
+                                                     for z_scalar in z])
         else:
-            self.Omega_de = config.getfloat('omega_de')
+            return self._hubble_distance * self._comoving_distance_scalar(z)
 
-        if config.get('w0') == 'None':
-            self.w0 = None
+    def _comoving_transverse_distance(self, z):
+        """Compute comoving transverse distance to target redshifts
+
+        Parameters
+        ----------
+        z : float or array
+            Target redshifts
+
+        Returns
+        -------
+        float or array
+            Comoving transverse distances between redshift 0 and input redshifts
+        """
+        dc = self._comoving_distance(z)
+        if self._Omega_k == 0:
+            return dc
+
+        sqrt_Ok0 = np.sqrt(abs(self._Omega_k))
+        dh = self._hubble_distance
+        if self._Omega_k > 0:
+            return dh / sqrt_Ok0 * np.sinh(sqrt_Ok0 * dc / dh)
         else:
-            self.w0 = config.getfloat('w0')
+            return dh / sqrt_Ok0 * np.sin(sqrt_Ok0 * dc / dh)
 
-        return config
 
-    # def comoving_distance(self, z):
-    #     """Compute comoving distance D_C(z)
-    #     Units are either Mpc or Mpc/h depending on the use_hunits flag
+@jit(float64(float64, float64, float64, float64, float64))
+def inv_efunc(z, Omega_m, Omega_r, Omega_k, w):
+    """Hubble parameter in wCDM + curvature
 
-    #     Arguments
-    #     ---------
-    #     z: array of float
-    #     Redshifts at which to compute the comoving distance
-
-    #     Return
-    #     ------
-    #     distance: array of float
-    #     Comoving distance D_C(z)
-    #     """
-    #     distance = self._cosmo.comoving_distance(z).value
-    #     if self.use_hunits:
-    #         distance *= self._cosmo.H0.value / 100
-    #     return distance
-
-    # def comoving_transverse_distance(self, z):
-    #     """Compute comoving angular diameter distance D_M(z)
-    #     Units are either Mpc or Mpc/h depending on the use_hunits flag
-
-    #     Arguments
-    #     ---------
-    #     z: array of float
-    #     Redshifts at which to compute the angular diameter distance
-
-    #     Return
-    #     ------
-    #     distance: array of float
-    #     Comoving angular diameter distance D_M(z)
-    #     """
-    #     distance = self._cosmo.comoving_transverse_distance(z).value
-    #     if self.use_hunits:
-    #         distance *= self._cosmo.H0.value / 100
-    #     return distance
+    Parameters
+    ----------
+    z : float
+        Redshift
+    Omega_m : float
+        Matter fraction at z = 0
+    Omega_de : float
+        Dark Energy fraction at z = 0
+    Returns
+    -------
+    float
+        Hubble parameter
+    """
+    Omega_de = 1 - Omega_m - Omega_k - Omega_r
+    de_pow = 3 * (1 + w)
+    zp = 1 + z
+    return (Omega_m * zp**3 + Omega_de * zp**de_pow + Omega_k * zp**2 + Omega_r * zp**4)**(-0.5)

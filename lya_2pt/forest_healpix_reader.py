@@ -218,6 +218,7 @@ class ForestHealpixReader:
             for index2, tracer2 in enumerate(other.tracers):
                 if ((get_angle(tracer1, tracer2) < self.ang_max) and
                     tracer1.check_if_neighbour(tracer2, self.auto_flag, z_min, z_max)):
+
                     neighbour_mask[index2] = True
 
             tracer1.add_neighbours(neighbour_mask)
