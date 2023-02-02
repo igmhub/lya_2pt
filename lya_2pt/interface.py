@@ -111,11 +111,14 @@ class Interface:
         num_tasks_per_proc = len(files) / self.mpi_size
         remainder = len(files) % self.mpi_size
         if self.mpi_rank < remainder:
-            start = self.mpi_rank * (num_tasks_per_proc + 1)
-            stop = start + num_tasks_per_proc + 1
+            start = int(self.mpi_rank * (num_tasks_per_proc + 1))
+            stop = int(start + num_tasks_per_proc + 1)
         else:
-            start = self.mpi_rank * num_tasks_per_proc + remainder
-            stop = start + num_tasks_per_proc
+            start = int(self.mpi_rank * num_tasks_per_proc + remainder)
+            stop = int(start + num_tasks_per_proc)
+
+        if self.mpi_rank == 0:
+            print('Starting computation...')
 
         # Loop over the healpixes this thread is responsible for
         for file in files[start:stop]:
@@ -123,12 +126,15 @@ class Interface:
             healpix_id = int(file.split("delta-")[-1].split(".fits")[0])
 
             # read tracers
+            print(f'Reading Healpix {healpix_id} on MPI rank {self.mpi_rank}')
             tracers1, tracers2, blinding = self.read_tracers(config, file, cosmo, healpix_id)
 
             # do the actual computation
+            print(f'Computing xi in Healpix {healpix_id} on MPI rank {self.mpi_rank}')
             output = self.run_computation(config, tracers1, tracers2)
 
             # write output
+            print(f'Writing xi for Healpix {healpix_id} on MPI rank {self.mpi_rank}')
             self.write_healpix_output(config, healpix_id, output, blinding)
 
     def read_tracers(self, config, file, cosmo, healpix_id):
