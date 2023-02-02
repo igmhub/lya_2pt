@@ -21,7 +21,9 @@ def _compute_xi_kernel(tracers1, tracers2, config):
 
     for tracer1 in tracers1:
         for tracer2 in tracers2[tracer1.neighbours]:
-            angle = get_angle(tracer1, tracer2)
+            angle = get_angle(tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra,
+                              tracer1.dec, tracer2.x_cart, tracer2.y_cart, tracer2.z_cart,
+                              tracer2.ra, tracer2.dec)
 
             compute_xi_pair(tracer1.deltas, tracer1.weights, tracer1.z,
                 tracer1.comoving_distance, tracer1.comoving_transverse_distance,
