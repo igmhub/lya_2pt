@@ -1,4 +1,5 @@
 import glob
+import time
 import fitsio
 import numpy as np
 from mpi4py import MPI
@@ -126,16 +127,25 @@ class Interface:
             healpix_id = int(file.split("delta-")[-1].split(".fits")[0])
 
             # read tracers
-            print(f'Reading Healpix {healpix_id} on MPI rank {self.mpi_rank}')
+            # print(f'Reading Healpix {healpix_id} on MPI rank {self.mpi_rank}')
+            t1 = time.time()
             tracers1, tracers2, blinding = self.read_tracers(config, file, cosmo, healpix_id)
+            t2 = time.time()
+            print(f'Time reading {healpix_id} on MPI rank {self.mpi_rank}: {(t2-t1):.3f}')
 
             # do the actual computation
-            print(f'Computing xi in Healpix {healpix_id} on MPI rank {self.mpi_rank}')
+            # print(f'Computing xi in Healpix {healpix_id} on MPI rank {self.mpi_rank}')
+            t1 = time.time()
             output = self.run_computation(config, tracers1, tracers2)
+            t2 = time.time()
+            print(f'Time computing {healpix_id} on MPI rank {self.mpi_rank}: {(t2-t1):.3f}')
 
             # write output
-            print(f'Writing xi for Healpix {healpix_id} on MPI rank {self.mpi_rank}')
+            # print(f'Writing xi for Healpix {healpix_id} on MPI rank {self.mpi_rank}')
+            t1 = time.time()
             self.write_healpix_output(config, healpix_id, output, blinding)
+            t2 = time.time()
+            print(f'Time writing {healpix_id} on MPI rank {self.mpi_rank}: {(t2-t1):.3f}')
 
     def read_tracers(self, config, file, cosmo, healpix_id):
         """Read the tracers
