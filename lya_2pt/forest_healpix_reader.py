@@ -184,7 +184,20 @@ class ForestHealpixReader:
 
         return neighbour_ids
 
-    def find_neighbours(self, other, z_min, z_max, ang_max):
+    @staticmethod
+    def _find_neighbours_kernel(tracer1, other, z_min, z_max, ang_max, auto_flag):
+        neighbour_mask = np.full(other.tracers.shape, False)
+
+        for index2, tracer2 in enumerate(other.tracers):
+            angle = get_angle(tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra,
+                              tracer1.dec, tracer2.x_cart, tracer2.y_cart, tracer2.z_cart,
+                              tracer2.ra, tracer2.dec)
+            if ((angle < ang_max) and tracer1.check_if_neighbour(tracer2, auto_flag, z_min, z_max)):
+                neighbour_mask[index2] = True
+
+        return neighbour_mask
+
+    def find_neighbours(self, other, z_min, z_max, ang_max, num_cpu):
         """For each tracer, find neighbouring tracers. Keep the results in
         tracer.neighbours
 
@@ -211,18 +224,12 @@ class ForestHealpixReader:
             raise ReaderException(
                 "In ForestHealpixReader, other.tracer should not be None")
 
-        for tracer1 in self.tracers:
-            neighbour_mask = np.full(other.tracers.shape, False)
+        arguments = [(tracer1, other, z_min, z_max, ang_max, self.auto_flag)
+                     for tracer1 in self.tracers]
+        with Pool(processes=num_cpu) as pool:
+            results = pool.starmap(self._find_neighbours_kernel, arguments, chunksize=10)
 
-            # TODO: This could be vectorized
-            for index2, tracer2 in enumerate(other.tracers):
-                angle = get_angle(tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra,
-                                  tracer1.dec, tracer2.x_cart, tracer2.y_cart, tracer2.z_cart,
-                                  tracer2.ra, tracer2.dec)
-                if ((angle < ang_max) and tracer1.check_if_neighbour(tracer2, self.auto_flag,
-                                                                     z_min, z_max)):
-                    neighbour_mask[index2] = True
-
+        for tracer1, neighbour_mask in zip(self.tracers, results):
             tracer1.add_neighbours(neighbour_mask)
 
 def read_from_image(hdul, absorption_line):
