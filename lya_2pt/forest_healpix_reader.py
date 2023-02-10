@@ -12,7 +12,7 @@ from multiprocessing import Pool
 # why not load ABSORBER_IGM from delta_extraction?
 from lya_2pt.constants import ABSORBER_IGM, ACCEPTED_BLINDING_STRATEGIES
 from lya_2pt.errors import ReaderException
-from lya_2pt.utils import parse_config, find_bins, get_angle
+from lya_2pt.utils import parse_config, find_bins, get_angle, check_if_neighbour
 from lya_2pt.tracer import Tracer
 
 accepted_options = [
@@ -88,7 +88,7 @@ class ForestHealpixReader:
                 f"Tracer type must be 'continuous'. Found: '{tracer1_type}'")
 
         # initialize auto_flag to False
-        self.auto_flag = False
+        # self.auto_flag = False
 
         # read data
         self.tracers = None
@@ -145,9 +145,11 @@ class ForestHealpixReader:
 
         # add distances
         for tracer in self.tracers:
-            tracer.compute_comoving_distances(cosmo)
+            comoving_distance = cosmo.comoving_distance(tracer.z)
+            comoving_transverse_distance = cosmo.comoving_transverse_distance(tracer.z)
+            tracer.set_comoving_distances(comoving_distance, comoving_transverse_distance)
 
-    def find_healpix_neighbours(self, nside, ang_max):
+    def find_healpix_neighbours(self, nside, ang_max, auto_flag):
         """Find the healpix neighbours
 
         Arguments
@@ -179,29 +181,29 @@ class ForestHealpixReader:
             neighbour_ids = neighbour_ids.union(set(tracer_neighbour_ids))
 
         neighbour_ids = np.array(list(neighbour_ids))
-        if self.healpix_id in neighbour_ids:
+        if auto_flag and self.healpix_id in neighbour_ids:
             neighbour_ids = np.delete(neighbour_ids, np.where(neighbour_ids == self.healpix_id))
 
         return neighbour_ids
 
     @staticmethod
-    def _find_neighbours_kernel(tracers1, other, z_min, z_max, ang_max, auto_flag):
+    def _find_neighbours_kernel(tracers1, tracers2, z_min, z_max, ang_max, auto_flag):
         for tracer1 in tracers1:
-            neighbour_mask = np.full(other.tracers.shape, False)
+            neighbour_mask = np.full(tracers2.tracers.shape, False)
+            angles = np.zeros(tracers2.tracers.shape)
 
-            for index2, tracer2 in enumerate(other.tracers):
-                angle = get_angle(tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra,
-                                  tracer1.dec, tracer2.x_cart, tracer2.y_cart, tracer2.z_cart,
-                                  tracer2.ra, tracer2.dec)
-                if ((angle < ang_max) and tracer1.check_if_neighbour(tracer2, auto_flag,
-                                                                     z_min, z_max)):
+            for index2, tracer2 in enumerate(tracers2.tracers):
+                angles[index2] = get_angle(tracer1, tracer2)
+                if ((angles[index2] < ang_max) and check_if_neighbour(tracer1, tracer2, auto_flag,
+                                                                      z_min, z_max)):
                     neighbour_mask[index2] = True
 
-            tracer1.add_neighbours(neighbour_mask)
+            neighbours = np.where(neighbour_mask)[0]
+            tracer1.add_neighbours(neighbours, angles[neighbour_mask])
 
         return tracers1
 
-    def find_neighbours(self, other, z_min, z_max, ang_max, num_cpu):
+    def find_neighbours(self, other, z_min, z_max, ang_max, num_cpu, auto_flag):
         """For each tracer, find neighbouring tracers. Keep the results in
         tracer.neighbours
 
@@ -228,13 +230,15 @@ class ForestHealpixReader:
             raise ReaderException(
                 "In ForestHealpixReader, other.tracer should not be None")
 
-        split_tracers1 = np.array_split(self.tracers, num_cpu)
-        arguments = [(tracers1, other, z_min, z_max, ang_max, self.auto_flag)
-                     for tracers1 in split_tracers1]
-        with Pool(processes=num_cpu) as pool:
-            results = pool.starmap(self._find_neighbours_kernel, arguments)
+        # split_tracers1 = np.array_split(self.tracers, num_cpu)
+        # arguments = [(tracers1, other, z_min, z_max, ang_max, auto_flag)
+        #              for tracers1 in split_tracers1]
+        # with Pool(processes=num_cpu) as pool:
+            # results = pool.starmap(self._find_neighbours_kernel, arguments)
         
-        self.tracers = np.hstack(results)
+        # self.tracers = np.hstack(results)
+        self.tracers = self._find_neighbours_kernel(self.tracers, other, z_min, z_max,
+                                                    ang_max, auto_flag)
 
 def read_from_image(hdul, absorption_line):
     """Read data with image format

@@ -1,8 +1,28 @@
 """This file defines the class Tracer used to compute the correlation functions"""
 import logging
 import numpy as np
+from numba.experimental import jitclass
+from numba import int64, float64, bool_
+
+spec = [
+    ('los_id', int64),
+    ('ra', float64),
+    ('dec', float64),
+    ('x_cart', float64),
+    ('y_cart', float64),
+    ('z_cart', float64),
+    ('deltas', float64[:]),
+    ('weights', float64[:]),
+    ('log_lambda', float64[:]),
+    ('z', float64[:]),
+    ('comoving_distance', float64[:]),
+    ('comoving_transverse_distance', float64[:]),
+    ('neighbours', int64[:]),
+    ('angles', float64[:])
+]
 
 
+@jitclass(spec)
 class Tracer:
     """Class contanining the information about the tracers.
 
@@ -95,12 +115,13 @@ class Tracer:
         self.log_lambda = log_lambda
         self.z = z
 
-        self.comoving_distance = None
-        self.comoving_transverse_distance = None
+        self.comoving_distance = np.zeros(deltas.shape)
+        self.comoving_transverse_distance = np.zeros(deltas.shape)
 
-        self.neighbours = None
+        self.neighbours = np.zeros(1, dtype=np.int64)
+        self.angles = np.zeros(1)
 
-    def add_neighbours(self, neighbours):
+    def add_neighbours(self, neighbours, angles):
         """Update the neighbours
 
         Arguments
@@ -111,8 +132,9 @@ class Tracer:
         False otherwise.
         """
         self.neighbours = neighbours
+        self.angles = angles
 
-    def compute_comoving_distances(self, cosmo):
+    def set_comoving_distances(self, comoving_distance, comoving_transverse_distance):
         """Compute the comoving distance and the transverse comoving distance
 
         Arguments
@@ -120,39 +142,51 @@ class Tracer:
         cosmo: lya_2pt.cosmo.Cosmology
         Cosmology used to convert angles and redshifts to distances
         """
-        assert self.z.shape == self.deltas.shape
-        self.comoving_distance = cosmo.comoving_distance(self.z)
-        self.comoving_transverse_distance = cosmo.comoving_transverse_distance(self.z)
+        # assert self.z.shape == self.deltas.shape
+        self.comoving_distance = comoving_distance
+        self.comoving_transverse_distance = comoving_transverse_distance
 
-    def check_if_neighbour(self, other, auto_flag, z_min, z_max):
-        """Check if other tracer is a neighbour
+    # def compute_comoving_distances(self, cosmo):
+    #     """Compute the comoving distance and the transverse comoving distance
 
-        Arguments
-        ---------
-        other: Tracer
-        The neighbour candidate
+    #     Arguments
+    #     ---------
+    #     cosmo: lya_2pt.cosmo.Cosmology
+    #     Cosmology used to convert angles and redshifts to distances
+    #     """
+    #     # assert self.z.shape == self.deltas.shape
+    #     self.comoving_distance = cosmo.comoving_distance(self.z)
+    #     self.comoving_transverse_distance = cosmo.comoving_transverse_distance(self.z)
 
-        auto_flag: bool
-        A flag specifying whether we want to compute the auto-correlation.
+    # def check_if_neighbour(self, other, auto_flag, z_min, z_max):
+    #     """Check if other tracer is a neighbour
 
-        Return
-        ------
-        is_neighbour: bool
-        True if the tracers are neighbours. False otherwise
-        """
-        # this is to avoid double counting in the autocorrelation
-        if auto_flag and (self.ra < other.ra):
-            return False
-        # we don't correlate things in the same line of sight, due to continuum
-        # fitting errors
-        if other.los_id == self.los_id:
-            return False
+    #     Arguments
+    #     ---------
+    #     other: Tracer
+    #     The neighbour candidate
 
-        # redshift checks
-        z_check = (other.z[-1] + self.z[-1]) / 2.
-        if z_check < z_min or z_check >= z_max:
-            return False
+    #     auto_flag: bool
+    #     A flag specifying whether we want to compute the auto-correlation.
 
-        # Add more conditions
+    #     Return
+    #     ------
+    #     is_neighbour: bool
+    #     True if the tracers are neighbours. False otherwise
+    #     """
+    #     # this is to avoid double counting in the autocorrelation
+    #     if auto_flag and (self.ra < other.ra):
+    #         return False
+    #     # we don't correlate things in the same line of sight, due to continuum
+    #     # fitting errors
+    #     if other.los_id == self.los_id:
+    #         return False
 
-        return True
+    #     # redshift checks
+    #     z_check = (other.z[-1] + self.z[-1]) / 2.
+    #     if z_check < z_min or z_check >= z_max:
+    #         return False
+
+    #     # Add more conditions
+
+    #     return True
