@@ -64,7 +64,7 @@ class Cosmology:
                                 self._Omega_k, config.getfloat('w0'))
 
 
-        z = np.linspace(0, 10, 1000)
+        z = np.linspace(0, 10, 10000)
         comoving_distance = self._comoving_distance(z)
         comoving_transverse_distance = self._comoving_transverse_distance(z)
         if self.use_hunits:
