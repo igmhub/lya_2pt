@@ -27,6 +27,6 @@ setup(name="lya_2pt",
       author_email=__email__,
       packages=find_namespace_packages(),
       install_requires=['numpy', 'scipy', 'astropy', 'healpy', 'fitsio', 'numba', 'setuptools',
-                        'gitpython'],
+                        'gitpython', 'mpi4py'],
       scripts=scripts
       )
