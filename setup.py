@@ -14,15 +14,16 @@ this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
 exec(open('lya_2pt/_version.py').read())
+version, author, email = __version__, __author__, __email__
 
 setup(name="lya_2pt",
-      version=__version__,
+      version=version,
       description=description,
       long_description=long_description,
       long_description_content_type='text/markdown',
       url="https://github.com/igmhub/lya_2pt",
-      author=__author__
-      author_email=__email__,
+      author=author
+      author_email=email,
       packages=find_namespace_packages(),
       install_requires=['numpy', 'scipy', 'astropy', 'healpy', 'fitsio', 'numba', 'setuptools',
                         'mpi4py', 'gitpython'],
