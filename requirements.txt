@@ -5,5 +5,4 @@ healpy
 fitsio
 numba
 setuptools
-mpi4py
 gitpython
