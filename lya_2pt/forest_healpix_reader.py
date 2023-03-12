@@ -18,12 +18,15 @@ from lya_2pt.tracer import Tracer
 accepted_options = [
     "input directory", "type", "absorption line",
     "project deltas", "order", "rebin", 
+    "redshift evolution", "reference redshift"
 ]
 
 defaults = {
     "type": 'continuous',
     "absorption line": "LYA",
     "project deltas" : True,
+    "redshift evolution": 2.9,
+    "reference redshift": 2.25,
     "order": 1,
     "rebin": 1
 }
@@ -107,18 +110,24 @@ class ForestHealpixReader:
                 " ".join(ACCEPTED_BLINDING_STRATEGIES) +
                 f" Found: {self.blinding}"
             )
+        
+        # Apply redshift evolution correction
+        ref_redshift = reader_config.getfloat("reference redshift")
+        redshift_evol = reader_config.getfloat("redshift evolution")
+        for tracer in self.tracers:
+            tracer.weights *= ((1 + tracer.z) / (1 + ref_redshift))**(redshift_evol - 1)
 
         # rebin
-        if config.getint("rebin") > 1:
+        if reader_config.getint("rebin") > 1:
             if num_cpu > 1:
                 arguments = [(tracer.log_lambda, tracer.deltas, tracer.weights,
-                              config.getint("rebin"), self.wave_solution)
+                              reader_config.getint("rebin"), self.wave_solution)
                              for tracer in self.tracers]
                 with Pool(processes=num_cpu) as pool:
                     results = pool.starmap(rebin, arguments)
             else:
                 results = [rebin(tracer.log_lambda, tracer.deltas, tracer.weights,
-                                 config.getint("rebin"), self.wave_solution)
+                                 reader_config.getint("rebin"), self.wave_solution)
                            for tracer in self.tracers]
 
             for tracer, (log_lambda, deltas, weights) in zip(self.tracers, results):
@@ -128,7 +137,7 @@ class ForestHealpixReader:
                 tracer.z = 10**log_lambda/ABSORBER_IGM.get(absorption_line) - 1.0
 
         # project
-        if config.getboolean("project deltas"):
+        if reader_config.getboolean("project deltas"):
             if num_cpu > 1:
                 arguments = [(tracer.log_lambda, tracer.deltas, tracer.weights,
                               reader_config.getint("order"))
