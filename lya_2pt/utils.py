@@ -1,6 +1,9 @@
+import os
 import numpy as np
 from numba import njit
+from pathlib import Path
 
+import lya_2pt
 from lya_2pt.errors import ParserError, FindBinsError
 
 SMALL_ANGLE_CUT_OFF = 2./3600.*np.pi/180. # 2 arcsec
@@ -178,3 +181,41 @@ def find_bins(original_array, grid_array, wave_solution):
             else:
                 break
     return found_bin
+
+
+def find_file(path):
+    """ Find files on the system.
+    Checks if it's an absolute path or something inside vega,
+    and returns a proper path.
+    Relative paths are checked from the vega main path,
+    vega/models and tests
+    Parameters
+    ----------
+    path : string
+        Input path. Can be absolute or relative to vega
+    """
+    input_path = Path(os.path.expandvars(path))
+
+    # First check if it's an absolute path
+    if input_path.is_file():
+        return input_path
+
+    # Get the vega path and check inside vega (this returns vega/vega)
+    vega_path = Path(os.path.dirname(lya_2pt.__file__))
+
+    # Check if it's a model
+    model = vega_path / 'models' / input_path
+    if model.is_file():
+        return model
+
+    # Check if it's something used for tests
+    test = vega_path.parents[0] / 'tests' / input_path
+    if test.is_file():
+        return test
+
+    # Check from the main vega folder
+    in_vega = vega_path.parents[0] / input_path
+    if in_vega.is_file():
+        return in_vega
+
+    raise RuntimeError('The path/file does not exists: ', input_path)
