@@ -98,11 +98,11 @@ class ForestHealpixReader:
         hdul = fitsio.FITS(file)
         # image format
         if "METADATA" in hdul:
-            self.tracers, self.wave_solution = read_from_image(hdul, absorption_line)
+            self.tracers, self.wave_solution, self.dwave  = read_from_image(hdul, absorption_line)
             self.blinding = hdul["METADATA"].read_header()["BLINDING"]
         # HDU per forest
         else:
-            self.tracers, self.wave_solution = read_from_hdu(hdul, absorption_line)
+            self.tracers, self.wave_solution, self.dwave = read_from_hdu(hdul, absorption_line)
             self.blinding = hdul[1].read_header()["BLINDING"]
         if self.blinding not in ACCEPTED_BLINDING_STRATEGIES:
             raise ReaderException(
@@ -127,7 +127,7 @@ class ForestHealpixReader:
                     results = pool.starmap(rebin, arguments)
             else:
                 results = [rebin(tracer.log_lambda, tracer.deltas, tracer.weights,
-                                 reader_config.getint("rebin"), self.wave_solution)
+                                 reader_config.getint("rebin"), self.wave_solution, self.dwave)
                            for tracer in self.tracers]
 
             for tracer, (log_lambda, deltas, weights) in zip(self.tracers, results):
@@ -273,6 +273,7 @@ def read_from_image(hdul, absorption_line):
     los_id_array = hdul["METADATA"]["LOS_ID"][:]
     ra_array = hdul["METADATA"]["RA"][:]
     dec_array = hdul["METADATA"]["DEC"][:]
+    dwave = hdul["METADATA"].read_header()['DELTA_LAMBDA']
 
     deltas_array = hdul["DELTA"].read().astype(float)
     weights_array = hdul["WEIGHT"].read().astype(float)
@@ -296,7 +297,7 @@ def read_from_image(hdul, absorption_line):
         tracers[i] = Tracer(los_id, ra, dec, deltas_array[i][mask],
                             weights_array[i][mask], log_lambda[mask], z)
 
-    return tracers, wave_solution
+    return tracers, wave_solution, dwave
 
 def read_from_hdu(hdul, absorption_line):
     """Read data with an HDU per forest
@@ -323,6 +324,8 @@ def read_from_hdu(hdul, absorption_line):
     ReaderException if both LOGLAM and LAMBDA extensions are not
     in the HDU list
     """
+    dwave = hdul[1].read_header()['DELTA_LAMBDA']
+
     tracers = []
     for hdu in hdul[1:]:
         header = hdu.read_header()
@@ -349,7 +352,7 @@ def read_from_hdu(hdul, absorption_line):
 
         tracers.append(Tracer(los_id, ra, dec, delta, weights, log_lambda, z))
 
-    return np.array(tracers), wave_solution
+    return np.array(tracers), wave_solution, dwave
 
 
 # @njit()
@@ -401,27 +404,6 @@ def rebin(log_lambda, deltas, weights, rebin_factor, wave_solution, dwave):
     new_wave = (edges[1:] + edges[:-1]) / 2
 
     return np.log10(new_wave[mask]), binned_delta[mask], binned_weight[mask]
-
-    self.log_lambda = np.log10(new_wave[mask])
-    self.delta = binned_delta[mask]
-    self.weights = binned_weight[mask]
-
-    # find new grid
-    if wave_solution == "lin":
-        lambda_ = 10**np.array(log_lambda)
-        rebin_lambda = np.average(lambda_.reshape(-1, rebin_factor), axis=1)
-        rebin_log_lambda = np.log10(rebin_lambda)
-    else:
-        rebin_log_lambda = np.average(log_lambda.reshape(-1, rebin_factor), axis=1)
-
-    # do the rebinning
-    bins = find_bins(log_lambda, rebin_log_lambda, wave_solution)
-    binned_arr_size = bins.max() + 1
-
-    rebin_deltas = np.bincount(bins, weights=weights * deltas, minlength=binned_arr_size)
-    rebin_weights = np.bincount(bins, weights=weights, minlength=binned_arr_size)
-
-    return rebin_log_lambda, rebin_deltas, rebin_weights
 
 
 @njit()
