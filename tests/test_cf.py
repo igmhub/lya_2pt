@@ -1,5 +1,5 @@
-import glob
 import numpy as np
+from math import isclose
 from configparser import ConfigParser
 
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
@@ -86,20 +86,20 @@ def test_cf():
         # do the actual computation
         output.append(compute_xi(tracers1, tracers2, config['settings'], 1))
 
-    assert np.sum(output[0][0]) == -0.05184208117859536
-    assert np.sum(output[1][0]) == -0.2030471656737548
+    assert isclose(np.sum(output[0][0]), -0.05184208117859536)
+    assert isclose(np.sum(output[1][0]), -0.2030471656737548)
 
-    assert np.sum(output[0][1]) == 3523393158.8356466
-    assert np.sum(output[1][1]) == 3215397304.86287
+    assert isclose(np.sum(output[0][1]), 3523393158.8356466)
+    assert isclose(np.sum(output[1][1]), 3215397304.86287)
 
-    assert np.sum(output[0][2]) == 165005.00815585596
-    assert np.sum(output[1][2]) == 148174.09924784309
+    assert isclose(np.sum(output[0][2]), 165005.00815585596)
+    assert isclose(np.sum(output[1][2]), 148174.09924784309)
 
-    assert np.sum(output[0][3]) == 108797.49069843581
-    assert np.sum(output[1][3]) == 86858.10634131041
+    assert isclose(np.sum(output[0][3]), 108797.49069843581)
+    assert isclose(np.sum(output[1][3]), 86858.10634131041)
 
-    assert np.sum(output[0][4]) == 4018.6163468698305
-    assert np.sum(output[1][4]) == 3453.876238579163
+    assert isclose(np.sum(output[0][4]), 4018.6163468698305)
+    assert isclose(np.sum(output[1][4]), 3453.876238579163)
 
-    assert np.sum(output[0][5]) == 30802608
-    assert np.sum(output[1][5]) == 33413546
+    assert isclose(np.sum(output[0][5]), 30802608)
+    assert isclose(np.sum(output[1][5]), 33413546)
