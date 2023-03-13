@@ -353,7 +353,7 @@ def read_from_hdu(hdul, absorption_line):
 
 
 # @njit()
-def rebin(log_lambda, deltas, weights, rebin_factor, wave_solution):
+def rebin(log_lambda, deltas, weights, rebin_factor, wave_solution, dwave):
     """Rebin a Tracer by combining N pixels together
 
     Arguments
@@ -385,6 +385,27 @@ def rebin(log_lambda, deltas, weights, rebin_factor, wave_solution):
     rebin_weight: array of float
     The rebinned array for the weights
     """
+    wave = 10**np.array(log_lambda)
+
+    start = wave.min() - dwave / 2
+    num_bins = np.ceil(((wave[-1] - wave[0]) / dwave + 1) / rebin_factor)
+
+    edges = np.arange(num_bins) * dwave * rebin_factor + start
+
+    new_indx = np.searchsorted(edges, wave)
+    binned_delta = np.bincount(new_indx, weights=deltas*weights, minlength=edges.size+1)[1:-1]
+    binned_weight = np.bincount(new_indx, weights=weights, minlength=edges.size+1)[1:-1]
+
+    mask = binned_weight != 0
+    binned_delta[mask] /= binned_weight[mask]
+    new_wave = (edges[1:] + edges[:-1]) / 2
+
+    return np.log10(new_wave[mask]), binned_delta[mask], binned_weight[mask]
+
+    self.log_lambda = np.log10(new_wave[mask])
+    self.delta = binned_delta[mask]
+    self.weights = binned_weight[mask]
+
     # find new grid
     if wave_solution == "lin":
         lambda_ = 10**np.array(log_lambda)
