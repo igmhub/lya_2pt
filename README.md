@@ -3,9 +3,9 @@
 [![Pytest](https://github.com/igmhub/lya_2pt/actions/workflows/python_package.yml/badge.svg)](https://github.com/igmhub/lya_2pt/actions/workflows/python_package.yml)
 [![codecov](https://codecov.io/gh/igmhub/lya_2pt/branch/main/graph/badge.svg?token=KNVLT9XERN)](https://codecov.io/gh/igmhub/lya_2pt)
 
-Package for computing 3D correlation functions from the Lya forest and associated tracers.
+Package for computing 3D correlation functions from the Lyman-alpha forest and associated tracers.
 
-Work in progress. To be incorporated with picca at a later date.
+This package is under development. Only basic forest auto-correlation functionality is currently available and tested.
 
 ## Installation
 First, create a clean environment:
