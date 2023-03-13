@@ -183,39 +183,47 @@ def find_bins(original_array, grid_array, wave_solution):
     return found_bin
 
 
-def find_file(path):
-    """ Find files on the system.
-    Checks if it's an absolute path or something inside vega,
-    and returns a proper path.
-    Relative paths are checked from the vega main path,
-    vega/models and tests
+def find_path(path, enforce=True):
+    """ Find paths on the system.
+
     Parameters
     ----------
     path : string
-        Input path. Can be absolute or relative to vega
+        Input path. Can be absolute or relative to lya_2pt
+    enforce : bool
+        Flag for enforcing that the path exists
     """
     input_path = Path(os.path.expandvars(path))
 
     # First check if it's an absolute path
-    if input_path.is_file():
-        return input_path
+    if input_path.exists():
+        return input_path.resolve()
 
     # Get the vega path and check inside vega (this returns vega/vega)
-    vega_path = Path(os.path.dirname(lya_2pt.__file__))
+    lya2pt_path = Path(os.path.dirname(lya_2pt.__file__))
 
-    # Check if it's a model
-    model = vega_path / 'models' / input_path
-    if model.is_file():
-        return model
+    # Check the lya2pt folder
+    in_lya2pt = lya2pt_path / input_path
+    if in_lya2pt.exists():
+        return in_lya2pt.resolve()
 
     # Check if it's something used for tests
-    test = vega_path.parents[0] / 'tests' / input_path
-    if test.is_file():
-        return test
+    in_tests = lya2pt_path.parents[0] / 'tests' / input_path
+    if in_tests.exists():
+        return in_tests.resolve()
 
-    # Check from the main vega folder
-    in_vega = vega_path.parents[0] / input_path
-    if in_vega.is_file():
-        return in_vega
+    # Check from the main lya2pt folder
+    in_main = lya2pt_path.parents[0] / input_path
+    if in_main.exists():
+        return in_main.resolve()
+    
+    # Check the lya2pt bin folder
+    in_bin = lya2pt_path.parents[0] / 'bin' / input_path
+    if in_bin.exists():
+        return in_bin.resolve()
 
-    raise RuntimeError('The path/file does not exists: ', input_path)
+    if not enforce:
+        print(f'Warning, the path/file was not found: {input_path}')
+        return input_path
+    else:
+        raise RuntimeError(f'The path/file does not exist: {input_path}')

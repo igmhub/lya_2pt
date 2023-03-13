@@ -6,7 +6,7 @@ from lya_2pt.forest_healpix_reader import ForestHealpixReader
 from lya_2pt.tracer2_reader import Tracer2Reader
 from lya_2pt.correlation import compute_xi
 from lya_2pt.cosmo import Cosmology
-from lya_2pt.utils import compute_ang_max, find_file
+from lya_2pt.utils import compute_ang_max, find_path
 
 
 def read_tracers(config, file, cosmo, healpix_id, nside, ang_max, auto_flag, z_min, z_max):
@@ -55,7 +55,7 @@ def read_tracers(config, file, cosmo, healpix_id, nside, ang_max, auto_flag, z_m
 
 def test_cf():
     config = ConfigParser()
-    config.read(find_file("configs/lyaxlya_cf.ini"))
+    config.read(find_path("configs/lyaxlya_cf.ini"))
 
     # intialize cosmology
     cosmo = Cosmology(config["cosmology"])
@@ -72,13 +72,13 @@ def test_cf():
     auto_flag = "tracer2" not in config
 
     # Find files
-    input_directory = config["tracer1"].get("input directory")
-    files = np.array(glob.glob(input_directory + '/*fits*'))
+    input_directory = find_path(config["tracer1"].get("input directory"))
+    files = np.array(sorted(input_directory.glob('*fits*')))
 
     output = []    
     for file in files:
         # Figure out healpix id of the file
-        healpix_id = int(file.split("delta-")[-1].split(".fits")[0])
+        healpix_id = int(file.name.split("delta-")[-1].split(".fits")[0])
 
         tracers1, tracers2, blinding = read_tracers(config, file, cosmo, healpix_id, nside,
                                                     ang_max, auto_flag, z_min, z_max)
