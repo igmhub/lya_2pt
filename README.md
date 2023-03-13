@@ -1,5 +1,8 @@
 # lya_2pt
 
+![Pytest](https://github.com/igmhub/lya_2pt/actions/workflows/python_package.yml/badge.svg?branch=master)
+![codecov](https://codecov.io/gh/igmhub/lya_2pt/branch/master/graph/badge.svg)
+
 Package for computing 3D correlation functions from the Lya forest and associated tracers.
 
 Work in progress. To be incorporated with picca at a later date.
