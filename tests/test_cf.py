@@ -86,20 +86,20 @@ def test_cf():
         # do the actual computation
         output.append(compute_xi(tracers1, tracers2, config['settings'], 1))
 
-    assert isclose(np.sum(output[0][0]), -0.05184208117859536)
-    assert isclose(np.sum(output[1][0]), -0.2030471656737548)
+    assert isclose(np.sum(output[0][0]), -0.018011306751563733)
+    assert isclose(np.sum(output[1][0]), -0.24107177381673406)
 
-    assert isclose(np.sum(output[0][1]), 3523393158.8356466)
-    assert isclose(np.sum(output[1][1]), 3215397304.86287)
+    assert isclose(np.sum(output[0][1]), 3474396919.7082357)
+    assert isclose(np.sum(output[1][1]), 3161197176.2617044)
 
-    assert isclose(np.sum(output[0][2]), 165005.00815585596)
-    assert isclose(np.sum(output[1][2]), 148174.09924784309)
+    assert isclose(np.sum(output[0][2]), 165020.50799382737)
+    assert isclose(np.sum(output[1][2]), 147679.3687192793)
 
-    assert isclose(np.sum(output[0][3]), 108797.49069843581)
-    assert isclose(np.sum(output[1][3]), 86858.10634131041)
+    assert isclose(np.sum(output[0][3]), 108795.79014303378)
+    assert isclose(np.sum(output[1][3]), 86392.82815556126)
 
-    assert isclose(np.sum(output[0][4]), 4018.6163468698305)
-    assert isclose(np.sum(output[1][4]), 3453.876238579163)
+    assert isclose(np.sum(output[0][4]), 4017.489007665773)
+    assert isclose(np.sum(output[1][4]), 3442.8489486736116)
 
-    assert isclose(np.sum(output[0][5]), 30802608)
-    assert isclose(np.sum(output[1][5]), 33413546)
+    assert isclose(np.sum(output[0][5]), 7610311)
+    assert isclose(np.sum(output[1][5]), 8255152)

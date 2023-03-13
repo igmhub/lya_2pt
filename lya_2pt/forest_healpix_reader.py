@@ -12,7 +12,7 @@ from multiprocessing import Pool
 # why not load ABSORBER_IGM from delta_extraction?
 from lya_2pt.constants import ABSORBER_IGM, ACCEPTED_BLINDING_STRATEGIES
 from lya_2pt.errors import ReaderException
-from lya_2pt.utils import parse_config, find_bins, get_angle
+from lya_2pt.utils import parse_config, get_angle
 from lya_2pt.tracer import Tracer
 
 accepted_options = [
