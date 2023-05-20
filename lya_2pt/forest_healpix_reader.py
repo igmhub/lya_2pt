@@ -17,14 +17,14 @@ from lya_2pt.tracer import Tracer
 
 accepted_options = [
     "input directory", "type", "absorption line",
-    "project deltas", "order", "rebin", 
+    "project deltas", "order", "rebin",
     "redshift evolution", "reference redshift"
 ]
 
 defaults = {
     "type": 'continuous',
     "absorption line": "LYA",
-    "project deltas" : True,
+    "project deltas": True,
     "redshift evolution": 2.9,
     "reference redshift": 2.25,
     "order": 1,
@@ -110,7 +110,7 @@ class ForestHealpixReader:
                 " ".join(ACCEPTED_BLINDING_STRATEGIES) +
                 f" Found: {self.blinding}"
             )
-        
+
         # Apply redshift evolution correction
         ref_redshift = reader_config.getfloat("reference redshift")
         redshift_evol = reader_config.getfloat("redshift evolution")
@@ -242,7 +242,7 @@ class ForestHealpixReader:
                      for tracers1 in split_tracers1]
         with Pool(processes=num_cpu) as pool:
             results = pool.starmap(self._find_neighbours_kernel, arguments)
-        
+
         self.tracers = np.hstack(results)
 
 def read_from_image(hdul, absorption_line):
