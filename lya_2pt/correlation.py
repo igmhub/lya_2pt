@@ -1,10 +1,10 @@
 import numpy as np
-from numba import njit, int32
-from multiprocessing import Pool
-from lya_2pt.utils import get_angle
+from numba import njit
+
+from lya_2pt.tracer_utils import get_angle
 
 
-def _compute_xi_kernel(tracers1, tracers2, config):
+def compute_xi(tracers1, tracers2, config):
     rp_min = config.getfloat('rp_min')
     rp_max = config.getfloat('rp_max')
     rt_max = config.getfloat('rt_max')
@@ -26,37 +26,11 @@ def _compute_xi_kernel(tracers1, tracers2, config):
                               tracer2.ra, tracer2.dec)
 
             compute_xi_pair(tracer1.deltas, tracer1.weights, tracer1.z,
-                tracer1.comoving_distance, tracer1.comoving_transverse_distance,
-                tracer2.deltas, tracer2.weights, tracer2.z,
-                tracer2.comoving_distance, tracer2.comoving_transverse_distance,
-                angle, rp_min, rp_max, rt_max, num_bins_rp, num_bins_rt,
-                xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid)
-    
-    w = weights_grid > 0
-    xi_grid[w] /= weights_grid[w]
-    rp_grid[w] /= weights_grid[w]
-    rt_grid[w] /= weights_grid[w]
-    z_grid[w] /= weights_grid[w]
-
-    return xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid
-
-
-def compute_xi(tracers1, tracers2, config, num_cpu):
-    if num_cpu < 2:
-        return _compute_xi_kernel(tracers1, tracers2, config)
-
-    split_tracers1 = np.array_split(tracers1, num_cpu)
-    arguments = [(local_tracers1, tracers2, config) for local_tracers1 in split_tracers1]
-    with Pool(processes=num_cpu) as pool:
-        results = pool.starmap(_compute_xi_kernel, arguments)
-
-    results = np.array(results)
-    xi_grid = np.sum(results[:, 0, :] * results[:, 1, :], axis=0)
-    weights_grid = np.sum(results[:, 1, :], axis=0)
-    rp_grid = np.sum(results[:, 2, :] * results[:, 1, :], axis=0)
-    rt_grid = np.sum(results[:, 3, :] * results[:, 1, :], axis=0)
-    z_grid = np.sum(results[:, 4, :] * results[:, 1, :], axis=0)
-    num_pairs_grid = np.sum(results[:, 5, :], axis=0)
+                            tracer1.comoving_distance, tracer1.comoving_transverse_distance,
+                            tracer2.deltas, tracer2.weights, tracer2.z,
+                            tracer2.comoving_distance, tracer2.comoving_transverse_distance,
+                            angle, rp_min, rp_max, rt_max, num_bins_rp, num_bins_rt,
+                            xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid)
 
     w = weights_grid > 0
     xi_grid[w] /= weights_grid[w]
@@ -71,7 +45,6 @@ def compute_xi(tracers1, tracers2, config, num_cpu):
 def compute_xi_pair(deltas1, weights1, z1, dc1, dm1, deltas2, weights2, z2, dc2, dm2,
                     angle, rp_min, rp_max, rt_max, rp_size, rt_size,
                     xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid):
-    
     sin_angle = np.sin(angle / 2)
     cos_angle = np.cos(angle / 2)
 

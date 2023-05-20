@@ -1,31 +1,30 @@
-import glob
-import time
-import fitsio
-import numpy as np
-from mpi4py import MPI
+from multiprocessing import Pool
 
-from lya_2pt.errors import MPIError
-from lya_2pt.forest_healpix_reader import ForestHealpixReader
-from lya_2pt.tracer2_reader import Tracer2Reader
+import numpy as np
+
 from lya_2pt.correlation import compute_xi
 from lya_2pt.cosmo import Cosmology
-from lya_2pt.utils import parse_config, compute_ang_max
+from lya_2pt.forest_healpix_reader import ForestHealpixReader
+from lya_2pt.tracer2_reader import Tracer2Reader
+from lya_2pt.utils import compute_ang_max, find_path, parse_config
+from lya_2pt.output import write_healpix_output
 
 accepted_options = [
     "num_bins_rp", "num_bins_rt", "nside", "rp_min", "rp_max", "rt_max",
-    "z_min", "z_max", "num processors",
+    "z_min", "z_max", "num processors", "global_z_min"
 ]
 
 defaults = {
+    "nside": 16,
     "z_min": 0,
     "z_max": 10,
-    "nside": 16,
     "rp_min": 0,
     "rp_max": 200,
     "rt_max": 200,
     "num_bins_rp": 50,
     "num_bins_rt": 50,
     "num processors": 1,
+    "global_z_min": 1.7
 }
 
 
@@ -53,15 +52,6 @@ class Interface:
     True if we are working with an auto-correlation, False for cross-correlation
     Initialized to False
 
-    mpi_comm: ?
-    ?
-
-    mpi_rank: ?
-    ?
-
-    mpi_size: ?
-    ?
-
     nside: int
     Nside parameter to construct the healpix pixels
 
@@ -79,134 +69,90 @@ class Interface:
         config: configparser.ConfigParser
         Configuration options
         """
-        # Initilize MPI objects
-        self.mpi_comm = MPI.COMM_WORLD
-        self.mpi_rank = self.mpi_comm.Get_rank()
-        self.mpi_size = self.mpi_comm.Get_size()
+        self.config = config
 
         # intialize cosmology
-        cosmo = Cosmology(config["cosmology"])
+        self.cosmo = Cosmology(config["cosmology"])
 
         # parse config
-        settings = parse_config(config["settings"], defaults, accepted_options)
-        self.z_min = settings.getfloat("z_min")
-        self.z_max = settings.getfloat("z_max")
-        self.nside = settings.getint("nside")
-        self.num_cpu = settings.getint("num processors")
+        self.settings = parse_config(config["settings"], defaults, accepted_options)
+        self.z_min = self.settings.getfloat("z_min")
+        self.z_max = self.settings.getfloat("z_max")
+        self.nside = self.settings.getint("nside")
+        self.num_cpu = self.settings.getint("num processors")
+
         # maximum angle for two lines-of-sight to have neightbours
-        self.ang_max = compute_ang_max(
-            cosmo, settings.getfloat('rt_max'), self.z_min)
+        self.ang_max = compute_ang_max(self.cosmo, self.settings.getfloat('rt_max'),
+                                       self.settings.getfloat("global_z_min"))
         # check if we are working with an auto-correlation
         self.auto_flag = "tracer2" not in config
 
         # Find files
-        input_directory = config["tracer1"].get("input directory")
-        files = np.array(glob.glob(input_directory + '/*fits*'))
+        input_directory = find_path(config["tracer1"].get("input directory"))
+        self.files = np.array(list(input_directory.glob('*fits*')))
 
-        if len(files) < self.mpi_size:
-            raise MPIError(f"Less files in {input_directory} than MPI processes. "
-                           f"Found {len(files)} healpix files and running "
-                           f"{self.mpi_size} MPI processes. This is wasteful. "
-                            "Please lower the numper of MPI processes.")
-
-        num_tasks_per_proc = len(files) // self.mpi_size
-        remainder = len(files) % self.mpi_size
-        if self.mpi_rank < remainder:
-            start = int(self.mpi_rank * (num_tasks_per_proc + 1))
-            stop = int(start + num_tasks_per_proc + 1)
-        else:
-            start = int(self.mpi_rank * num_tasks_per_proc + remainder)
-            stop = int(start + num_tasks_per_proc)
-
-        if self.mpi_rank == 0:
-            print('Starting computation...')
-
-        # Loop over the healpixes this thread is responsible for
-        t1 = time.time()
-        for file in files[start:stop]:
-            # Figure out healpix id of the file
-            healpix_id = int(file.split("delta-")[-1].split(".fits")[0])
-
-            # read tracers
-            print(f'Reading Healpix {healpix_id} on MPI rank {self.mpi_rank}')
-            # t1 = time.time()
-            tracers1, tracers2, blinding = self.read_tracers(config, file, cosmo, healpix_id)
-            # t2 = time.time()
-            # print(f'Time reading {healpix_id} on MPI rank {self.mpi_rank}: {(t2-t1):.3f}')
-
-            # do the actual computation
-            print(f'Computing xi in Healpix {healpix_id} on MPI rank {self.mpi_rank}')
-            # t1 = time.time()
-            output = self.run_computation(config, tracers1, tracers2)
-            # t2 = time.time()
-            # print(f'Time computing {healpix_id} on MPI rank {self.mpi_rank}: {(t2-t1):.3f}')
-
-            # write output
-            print(f'Writing xi for Healpix {healpix_id} on MPI rank {self.mpi_rank}')
-            # t1 = time.time()
-            self.write_healpix_output(config, healpix_id, output, blinding)
-            # t2 = time.time()
-            # print(f'Time writing {healpix_id} on MPI rank {self.mpi_rank}: {(t2-t1):.3f}')
-        t2 = time.time()
-        print(f'MPI rank {self.mpi_rank} finished computation in: {(t2-t1)/60:.3f} minutes')
-
-    def read_tracers(self, config, file, cosmo, healpix_id):
+    def read_tracers(self, files=None):
         """Read the tracers
 
         Arguments
         ---------
-        config: configparser.ConfigParser
-        Configuration options
-
-        file: str
-        Main healpix file
-
-        cosmo: Cosmology
-        Fiducial cosmology used to go from angles and redshift to distances
-
-        Return
-        ------
-        tracer1: array of Tracer
-        First set of tracers, with neightbours computed
-
-        tracer2: array of Tracers
-        Second set of tracers
+        files: array[Path], optional
+        List of delta files to read, by default None
         """
-        # read tracers 1
-        forest_reader = ForestHealpixReader(config["tracer1"], file, cosmo,
-                                            self.num_cpu, healpix_id)
-        healpix_neighbours_ids = forest_reader.find_healpix_neighbours(
-            self.nside, self.ang_max)
+        if files is None:
+            files = self.files
 
-        # read tracers 2 - auto correlation
+        with Pool(processes=self.num_cpu) as pool:
+            results = pool.map(self.read_tracer1, files)
+
+        forest_readers = {}
+        healpix_neighbours = []
+        self.blinding = None
+        for res in results:
+            hp_id = res[0].healpix_id
+            forest_readers[hp_id] = res[0]
+            healpix_neighbours.append(res[1])
+
+            if self.blinding is None:
+                self.blinding = res[0].blinding
+            else:
+                assert self.blinding == res[0].blinding
+
+        healpix_neighbours = np.unique(np.hstack(healpix_neighbours))
+
         if self.auto_flag:
-            forest_reader.auto_flag = True
-            tracer2_reader = Tracer2Reader(
-                config["tracer1"], healpix_neighbours_ids, cosmo, self.num_cpu)
-            # TODO: check this
-            # Ignasi: I'm worried we are adding this twice
-            # If healpix_neighbours_ids has the healpix id of tracers1
-            # then we are. I presume it's the case as otherwise, we are
-            # not reading the main healpix for tracer2 in the cross-correlation
-            # case.
-            # To fix this, we should use auto_flag in method find_healpix_neighbours
-            # to not include the main healpix in the list of healpixes
-            # We could then initialize forest_reader.auto_flag in that function
-            tracer2_reader.add_tracers(forest_reader)
-        # read tracers 2 - cross correlation
+            healpix_neighbours = healpix_neighbours[~np.isin(healpix_neighbours,
+                                                             list(forest_readers.keys()))]
+            self.tracer2_reader = Tracer2Reader(self.config["tracer1"], healpix_neighbours,
+                                                self.cosmo, self.num_cpu)
+            for forest_reader in forest_readers.values():
+                self.tracer2_reader.add_tracers(forest_reader)
         else:
-            tracer2_reader = Tracer2Reader(
-                config["tracer2"], healpix_neighbours_ids, cosmo, self.num_cpu)
+            self.tracer2_reader = Tracer2Reader(self.config["tracer2"], healpix_neighbours,
+                                                self.cosmo, self.num_cpu)
 
-        forest_reader.find_neighbours(tracer2_reader, self.z_min, self.z_max,
+        if len(files) > 1 and self.num_cpu > 1:
+            with Pool(processes=self.num_cpu) as pool:
+                pool.map(self.find_neighbours, forest_readers.values())
+        else:
+            for forest_reader in forest_readers:
+                self.find_neighbours(forest_reader)
+
+        self.tracers1 = {hp_id: forest_reader.tracers for hp_id, forest_reader in forest_readers}
+        self.tracers2 = self.tracer2_reader.tracers
+
+    def read_tracer1(self, file):
+        forest_reader = ForestHealpixReader(self.config["tracer1"], file, self.cosmo,
+                                            self.auto_flag)
+        healpix_neighbours = forest_reader.find_healpix_neighbours(self.nside, self.ang_max)
+
+        return forest_reader, healpix_neighbours
+
+    def find_neighbours(self, forest_reader):
+        forest_reader.find_neighbours(self.tracer2_reader, self.z_min, self.z_max,
                                       self.ang_max, self.num_cpu)
 
-        tracers1 = forest_reader.tracers
-        tracers2 = tracer2_reader.tracers
-
-        return tracers1, tracers2, forest_reader.blinding
-
-    def run_computation(self, config, tracers1, tracers2):
+    def run(self, healpix_ids=None):
         """Run the computation
 
         This can include the correlation function, the distortion matrix,
@@ -214,117 +160,32 @@ class Interface:
 
         Arguments
         ---------
-        config: configparser.SectionProxy
-        Configuration options
-
-        tracer1: array of Tracer
-        First set of tracers, with neightbours computed
-
-        tracer2: array of Tracers
-        Second set of tracers
-
-        Return
-        ------
-        output: ?
-        ?
+        healpix_ids: array[int], optional
+        List of healpix_ids to run on, by default None
         """
-        output = None
-        if config['compute'].getboolean('compute correlation'):
-            output = compute_xi(tracers1, tracers2, config['settings'], self.num_cpu)
-        # TODO: add other modes
+        if healpix_ids is None:
+            healpix_ids = list(self.tracers1.keys())
 
-        return output
+        self.xi_output = {}
+        if self.config['compute'].getboolean('compute correlation'):
+            if self.num_cpu > 1:
+                arguments = [(tracers1, self.tracers2, self.settings)
+                             for tracers1 in self.tracers1.values()]
 
-    def write_healpix_output(self, config, healpix_id, output, blinding):
-        """Write computation output for the main healpix
+                with Pool(processes=self.num_cpu) as pool:
+                    results = pool.starmap(compute_xi, arguments)
 
-        Arguments
-        ---------
-        config: configparser.SectionProxy
-        Configuration options
+                for hp_id, res in zip(self.tracers1.keys(), results):
+                    self.xi_output[hp_id] = res
+            else:
+                for hp_id, tracers1 in self.tracers1.items():
+                    self.xi_output[hp_id] = compute_xi(tracers1, self.tracers2, self.settings)
 
-        file: str
-        Name of the read file, used to construct the output file
+        # TODO: add other computations
 
-        output: ?
-        ?
-        """
-        output_directory = config["output"].get("output directory")
-        filename = output_directory + f"/correlation-{healpix_id}.fits.gz"
-
-        # TODO: Check if this exists already
-        # Ignasi: The idea is to use the same file to save correlation
-        # distortion and metal distortion even if they are computed in
-        # separate runs
-        # If we do this, we should also check that the configuration is
-        # the same in all the runs
-
-        # save data
-        results = fitsio.FITS(filename, 'rw', clobber=True)
-        header = [{
-            'name': 'R_PAR_MIN',
-            'value': config['settings'].getfloat('rp_min'),
-            'comment': 'Minimum r-parallel [h^-1 Mpc]'
-        }, {
-            'name': 'R_PAR_MAX',
-            'value': config['settings'].getfloat('rp_max'),
-            'comment': 'Maximum r-parallel [h^-1 Mpc]'
-        }, {
-            'name': 'R_TRANS_MAX',
-            'value': config['settings'].getfloat('rt_max'),
-            'comment': 'Maximum r-transverse [h^-1 Mpc]'
-        }, {
-            'name': 'NUM_BINS_R_PAR',
-            'value': config['settings'].getint('num_bins_rp'),
-            'comment': 'Number of bins in r-parallel'
-        }, {
-            'name': 'NUM_BINS_R_TRANS',
-            'value': config['settings'].getint('num_bins_rt'),
-            'comment': 'Number of bins in r-transverse'
-        }, {
-            'name': 'Z_MIN',
-            'value': config['settings'].getfloat('z_min'),
-            'comment': 'Minimum redshift of pairs'
-        }, {
-            'name': 'Z_MAX',
-            'value': config['settings'].getfloat('z_max'),
-            'comment': 'Maximum redshift of pairs'
-        }, {
-            'name': 'NSIDE',
-            'value': config['settings'].getint('nside'),
-            'comment': 'Healpix nside'
-        }, {
-            'name': 'OMEGA_M',
-            'value': config['cosmology'].getfloat('Omega_m'),
-            'comment': 'Omega_matter(z=0) of fiducial LambdaCDM cosmology'
-        }, {
-            'name': "BLINDING",
-            'value': blinding,
-            'comment': 'String specifying the blinding strategy'
-        }
-        ]
-        results.write(
-            [output[2], output[3], output[4], output[5]],
-            names=['R_PAR', 'R_TRANS', 'Z', 'NUM_PAIRS'],
-            comment=['R-parallel', 'R-transverse', 'Redshift', 'Number of pairs'],
-            units=['h^-1 Mpc', 'h^-1 Mpc', '', ''],
-            header=header,
-            extname='ATTRIBUTES')
-
-        if config["compute"].getboolean('compute correlation'):
-            header2 = [{
-                'name': 'HEALPIX_ID',
-                'value': healpix_id,
-                'comment': 'Healpix id'
-            }]
-            correlation_name = "CORRELATION"
-            if blinding != "none":
-                correlation_name += "_BLIND"
-            results.write([output[0], output[1]],
-                          names=[correlation_name, "WEIGHT_SUM"],
-                          comment=['unnormalized correlation', 'Sum of weight'],
-                          header=header2,
-                          extname='CORRELATION')
+    def write_results(self):
+        if self.config['compute'].getboolean('compute correlation'):
+            for healpix_id, result in self.xi_output.items():
+                write_healpix_output(result, healpix_id, self.config, self.settings, self.blinding)
 
         # TODO: add other modes
-        results.close()

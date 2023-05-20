@@ -1,12 +1,12 @@
-import glob
-import numpy as np
 from multiprocessing import Pool
 
-from lya_2pt.utils import parse_config
-from lya_2pt.errors import ReaderException
+import numpy as np
+
+from lya_2pt.tracer import Tracer
 from lya_2pt import forest_healpix_reader
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
-from lya_2pt.tracer import Tracer
+from lya_2pt.utils import find_path, parse_config
+from lya_2pt.errors import ReaderException
 
 # Read defaults from the healpix reader and add tracer2 specific options
 accepted_options = forest_healpix_reader.accepted_options
@@ -29,7 +29,7 @@ class Tracer2Reader:
     Attributes
     ----------
     """
-    def __init__(self, config, healpix_neighbours_ids, cosmo, num_cpu):
+    def __init__(self, config, healpix_neighbours, cosmo, num_cpu):
         """Initialize class instance
 
         Arguments
@@ -37,7 +37,7 @@ class Tracer2Reader:
         config: configparser.SectionProxy
         Configuration options
 
-        healpix_neighbours_ids: array of int
+        healpix_neighbours: array of int
         Healpix ids to load
 
         cosmo: Cosmology
@@ -46,16 +46,18 @@ class Tracer2Reader:
         # parse configuration
         reader_config = parse_config(config, defaults, accepted_options)
 
+        self.tracers = np.array([], dtype=Tracer)
+
         tracer2_type = config.get('type')
         if tracer2_type == 'continuous':
-            self.read_forests(reader_config, healpix_neighbours_ids, cosmo, num_cpu)
+            self.read_forests(reader_config, healpix_neighbours, cosmo, num_cpu)
         elif tracer2_type == 'discrete':
-            self.read_catalogue(reader_config, healpix_neighbours_ids)
+            self.read_catalogue(reader_config, healpix_neighbours)
         else:
             raise ReaderException(
                 "Unknown tracer2 type. Must be 'continuous' or 'discrete'.")
 
-    def read_forests(self, config, healpix_neighbours_ids, cosmo, num_cpu):
+    def read_forests(self, config, healpix_neighbours, cosmo, num_cpu):
         """Read continuous tracers from healpix delta files
 
         Arguments
@@ -63,33 +65,25 @@ class Tracer2Reader:
         config: configparser.SectionProxy
         Configuration options
 
-        healpix_neighbours_ids: array of int
+        healpix_neighbours: array of int
         Healpix ids to load
 
         cosmo: Cosmology
         Fiducial cosmology used to go from angles and redshift to distances
         """
-        in_dir = config.get('input directory')
-        files = np.array(glob.glob(in_dir + '/*fits*'))
+        input_directory = find_path(config.get('input directory'))
+        files = np.array(list(input_directory.glob('*fits*')))
 
-        self.tracers = np.array([], dtype=Tracer)
-
-        neighbour_files = [in_dir + f'delta-{healpix_id}.fits.gz'
-                           for healpix_id in healpix_neighbours_ids]
+        neighbour_files = [input_directory / f'delta-{healpix_id}.fits.gz'
+                           for healpix_id in healpix_neighbours]
         neighbour_files = [file for file in neighbour_files if file in files]
-            # else:
-            #     # Print some error message? Or just a warning?
-            #     # Ignasi: I would add a warning as this will happen occasionally
-            #     # in the edges of the footprint
-            #     # need to setup logging first, though
-            #     pass
 
         if num_cpu > 1:
-            arguments = [(config, file, cosmo, int(1)) for file in neighbour_files]
+            arguments = [(config, file, cosmo, False) for file in neighbour_files]
             with Pool(processes=num_cpu) as pool:
                 results = pool.starmap(ForestHealpixReader, arguments)
         else:
-            results = [ForestHealpixReader(config, file, cosmo, num_cpu)
+            results = [ForestHealpixReader(config, file, cosmo, False)
                        for file in neighbour_files]
 
         for healpix_reader in results:

@@ -1,12 +1,10 @@
 import os
-import numpy as np
-from numba import njit
 from pathlib import Path
 
-import lya_2pt
-from lya_2pt.errors import ParserError, FindBinsError
+import numpy as np
 
-SMALL_ANGLE_CUT_OFF = 2./3600.*np.pi/180. # 2 arcsec
+import lya_2pt
+from lya_2pt.errors import ParserError
 
 
 def parse_config(config, defaults, accepted_options):
@@ -52,11 +50,7 @@ def parse_config(config, defaults, accepted_options):
 
 
 def compute_ang_max(cosmo, rt_max, z_min, z_min2=None):
-    """Computes the maximum anglular separation the correlation should be
-    calculated to.
-
-    This angle is given by the maximum transverse separation and the fiducial
-    cosmology
+    """Computes the maximum angular separation we need to look for neighbours
 
     Arguments
     ---------
@@ -92,55 +86,6 @@ def compute_ang_max(cosmo, rt_max, z_min, z_min2=None):
     return ang_max
 
 
-@njit
-def get_angle(x1, y1, z1, ra1, dec1, x2, y2, z2, ra2, dec2):
-    """Compute angle between two tracers"""
-    cos = x1 * x2 + y1 * y2 + z1 * z2
-    if cos >= 1.:
-        cos = 1.
-    elif cos <= -1.:
-        cos = -1.
-    angle = np.arccos(cos)
-
-    if ((np.abs(ra2 - ra1) < SMALL_ANGLE_CUT_OFF) & (np.abs(dec2 - dec1) < SMALL_ANGLE_CUT_OFF)):
-        angle = np.sqrt((dec2 - dec1)**2 + (np.cos(dec1) * (ra2 - ra1))**2)
-
-    return angle
-
-
-# def get_angle(tracer1, tracer2):
-#     """Compute angle between two tracers of Tracer type
-
-#     Arguments
-#     ---------
-#     tracer1 : Tracer
-#     First tracer
-
-#     tracer2 : Tracer
-#     Second tracer
-
-#     Return
-#     ------
-#     angle: float
-#     Angle between tracer1 and tracer2
-#     """
-#     cos = (tracer2.x_cart * tracer1.x_cart + tracer2.y_cart * tracer1.y_cart
-#            + tracer2.z_cart * tracer1.z_cart)
-
-#     if cos >= 1.:
-#         cos = 1.
-#     elif cos <= -1.:
-#         cos = -1.
-#     angle = np.arccos(cos)
-
-#     if ((np.abs(tracer2.ra - tracer1.ra) < SMALL_ANGLE_CUT_OFF)
-#       & (np.abs(tracer2.dec - tracer1.dec) < SMALL_ANGLE_CUT_OFF)):
-#         angle = np.sqrt((tracer2.dec - tracer1.dec)**2
-#                         + (np.cos(tracer1.dec) * (tracer2.ra - tracer1.ra))**2)
-
-#     return angle
-
-
 def find_path(path, enforce=True):
     """ Find paths on the system.
 
@@ -174,7 +119,7 @@ def find_path(path, enforce=True):
     in_main = lya2pt_path.parents[0] / input_path
     if in_main.exists():
         return in_main.resolve()
-    
+
     # Check the lya2pt bin folder
     in_bin = lya2pt_path.parents[0] / 'bin' / input_path
     if in_bin.exists():

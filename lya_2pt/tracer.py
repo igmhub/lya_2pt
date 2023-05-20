@@ -1,6 +1,8 @@
 """This file defines the class Tracer used to compute the correlation functions"""
-import logging
 import numpy as np
+
+from lya_2pt.constants import ABSORBER_IGM
+from lya_2pt.tracer_utils import rebin, project_deltas
 
 
 class Tracer:
@@ -51,7 +53,7 @@ class Tracer:
     z: array of float
     The redshift associated with the deltas field.
     """
-    def __init__(self, los_id, ra, dec, deltas, weights, log_lambda, z):
+    def __init__(self, healpix_id, los_id, ra, dec, deltas, weights, log_lambda, z):
         """Initializes class instance
 
         neighbours class attribute is initialized to None. Method add_neighbours
@@ -59,6 +61,9 @@ class Tracer:
 
         Arguments
         ---------
+        healpix_id: int
+        Line of sight identifier
+
         los_id: int
         Line of sight identifier
 
@@ -82,6 +87,7 @@ class Tracer:
         z: array of float
         The redshift associated with the deltas field.
         """
+        self.healpix_id = healpix_id
         self.los_id = los_id
         self.ra = ra
         self.dec = dec
@@ -156,3 +162,15 @@ class Tracer:
         # Add more conditions
 
         return True
+
+    def rebin(self, rebin_factor, dwave, absorption_line):
+        log_lambda, deltas, weights = rebin(self.log_lambda, self.deltas, self.weights,
+                                            rebin_factor, dwave)
+
+        self.log_lambda = log_lambda
+        self.deltas = deltas
+        self.weights = weights
+        self.z = 10**log_lambda/ABSORBER_IGM.get(absorption_line) - 1.0
+
+    def project(self, order):
+        self.deltas = project_deltas(self.log_lambda, self.deltas, self.weights, order)

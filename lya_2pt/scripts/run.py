@@ -16,8 +16,11 @@ def main():
     config = ConfigParser()
     config.read(args.config)
 
-    Interface(config)
+    lya2pt = Interface(config)
+    lya2pt.read_tracers()
+    lya2pt.run()
+    lya2pt.write_results()
 
 
 if __name__ == '__main__':
-    main()    
+    main()
