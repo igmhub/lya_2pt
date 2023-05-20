@@ -109,7 +109,7 @@ class Interface:
                            f"{self.mpi_size} MPI processes. This is wasteful. "
                             "Please lower the numper of MPI processes.")
 
-        num_tasks_per_proc = len(files) / self.mpi_size
+        num_tasks_per_proc = len(files) // self.mpi_size
         remainder = len(files) % self.mpi_size
         if self.mpi_rank < remainder:
             start = int(self.mpi_rank * (num_tasks_per_proc + 1))

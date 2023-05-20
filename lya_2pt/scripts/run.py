@@ -3,7 +3,8 @@ from configparser import ConfigParser
 
 from lya_2pt.interface import Interface
 
-if __name__ == '__main__':
+
+def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description=('Compute auto-correlation function'))
 
@@ -16,3 +17,7 @@ if __name__ == '__main__':
     config.read(args.config)
 
     Interface(config)
+
+
+if __name__ == '__main__':
+    main()    

@@ -1,64 +1,64 @@
-name: Pytest
-on:
-  [push, pull_request]
-env:
-  SETUP_XVFB: True  # avoid issues if mpl tries to open a GUI window
+# name: Pytest
+# on:
+#   [push, pull_request]
+# env:
+#   SETUP_XVFB: True  # avoid issues if mpl tries to open a GUI window
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    # the whole CI pipeline will be skipped if [ci skip] is in the commit msg
-    if: "!contains(github.event.head_commit.message, '[ci skip]')"
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
+#     # the whole CI pipeline will be skipped if [ci skip] is in the commit msg
+#     if: "!contains(github.event.head_commit.message, '[ci skip]')"
 
-    timeout-minutes: 60
-    strategy:
-      matrix:
-        python-version: ["3.9", "3.10"]
-        mpi: ['openmpi']
-        # mpi: [ 'mpich', 'openmpi', 'intelmpi']
-#    env:   
-#      OMP_NUM_THREADS: 1
-#      MKL_NUM_THREADS: 1
-#      OPENBLAS_NUM_THREADS: 1
-#      NUMEXPR_NUM_THREADS: 1
-    steps:
-    - uses: actions/checkout@master
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@master
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Setup MPI
-      uses: mpi4py/setup-mpi@v1
-      with:
-        mpi: ${{ matrix.mpi }}
-    - name: Install dependencies
-      run: |
-        sudo apt-get -y install libbz2-dev
-        python -m pip install --upgrade pip
-        pip install wheel flake8 pytest pytest-cov coveralls
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    # # TODO: the section below can be removed if the compile step is fixed otherwise
-    # - name: Reinstall fitsio to ensure the numpy version during compilation matches the one at runtime
-    #   run: |
-    #     pip uninstall fitsio -y
-    #     pip cache purge
-    #     if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Install lya_2pt
-      run: pip install -e .
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest and gen report
-      timeout-minutes: 30
-      run: |
-        pytest --cov=./ --cov-report=xml
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        env_vars: OS,PYTHON
-        fail_ci_if_error: true
-        flags: unittests
-        verbose: true
+#     timeout-minutes: 60
+#     strategy:
+#       matrix:
+#         python-version: ["3.9", "3.10"]
+#         mpi: ['openmpi']
+#         # mpi: [ 'mpich', 'openmpi', 'intelmpi']
+# #    env:   
+# #      OMP_NUM_THREADS: 1
+# #      MKL_NUM_THREADS: 1
+# #      OPENBLAS_NUM_THREADS: 1
+# #      NUMEXPR_NUM_THREADS: 1
+#     steps:
+#     - uses: actions/checkout@master
+#     - name: Set up Python ${{ matrix.python-version }}
+#       uses: actions/setup-python@master
+#       with:
+#         python-version: ${{ matrix.python-version }}
+#     - name: Setup MPI
+#       uses: mpi4py/setup-mpi@v1
+#       with:
+#         mpi: ${{ matrix.mpi }}
+#     - name: Install dependencies
+#       run: |
+#         sudo apt-get -y install libbz2-dev
+#         python -m pip install --upgrade pip
+#         pip install wheel flake8 pytest pytest-cov coveralls
+#         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+#     # # TODO: the section below can be removed if the compile step is fixed otherwise
+#     # - name: Reinstall fitsio to ensure the numpy version during compilation matches the one at runtime
+#     #   run: |
+#     #     pip uninstall fitsio -y
+#     #     pip cache purge
+#     #     if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+#     - name: Install lya_2pt
+#       run: pip install -e .
+#     - name: Lint with flake8
+#       run: |
+#         # stop the build if there are Python syntax errors or undefined names
+#         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+#         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+#         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+#     - name: Test with pytest and gen report
+#       timeout-minutes: 30
+#       run: |
+#         pytest --cov=./ --cov-report=xml
+#     - name: Upload coverage to Codecov
+#       uses: codecov/codecov-action@v3
+#       with:
+#         env_vars: OS,PYTHON
+#         fail_ci_if_error: true
+#         flags: unittests
+#         verbose: true

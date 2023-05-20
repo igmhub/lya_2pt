@@ -6,4 +6,3 @@ fitsio
 numba
 setuptools
 gitpython
-mpi4py
