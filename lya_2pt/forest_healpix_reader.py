@@ -273,7 +273,7 @@ def read_from_image(hdul, absorption_line):
     los_id_array = hdul["METADATA"]["LOS_ID"][:]
     ra_array = hdul["METADATA"]["RA"][:]
     dec_array = hdul["METADATA"]["DEC"][:]
-    dwave = hdul["METADATA"].read_header()['DELTA_LAMBDA']
+    dwave = hdul["LAMBDA"].read_header()['DELTA_LAMBDA']
 
     deltas_array = hdul["DELTA"].read().astype(float)
     weights_array = hdul["WEIGHT"].read().astype(float)
