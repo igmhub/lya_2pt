@@ -133,10 +133,13 @@ class Interface:
 
         if len(files) > 1 and self.num_cpu > 1:
             with Pool(processes=self.num_cpu) as pool:
-                pool.map(self.find_neighbours, forest_readers.values())
+                results = pool.map(self.find_neighbours, forest_readers.values())
+
+            for res in results:
+                forest_readers[res.healpix_id] = res
         else:
-            for forest_reader in forest_readers.values():
-                self.find_neighbours(forest_reader)
+            for hp_id, forest_reader in forest_readers.items():
+                forest_readers[hp_id] = self.find_neighbours(forest_reader)
 
         self.tracers1 = {hp_id: forest_reader.tracers
                          for hp_id, forest_reader in forest_readers.items()}
@@ -154,6 +157,7 @@ class Interface:
 
     def find_neighbours(self, forest_reader):
         forest_reader.find_neighbours(self.tracer2_reader, self.z_min, self.z_max, self.ang_max)
+        return forest_reader
 
     def run(self, healpix_ids=None):
         """Run the computation

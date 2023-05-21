@@ -18,18 +18,10 @@ def compute_xi(tracers1, tracers2, config):
     rt_grid = np.zeros(total_size)
     z_grid = np.zeros(total_size)
     num_pairs_grid = np.zeros(total_size, dtype=np.int64)
-    print(tracers1.shape)
-    print(tracers1[0])
-    print(tracers1[0].x_cart)
+
     for tracer1 in tracers1:
+        assert tracer1.neighbours is not None
         for tracer2 in tracers2[tracer1.neighbours]:
-            try:
-                tracer1.x_cart
-                tracer2.x_cart
-            except:
-                print(tracer1)
-                print(tracer1.neighbours)
-                print(tracer2)
             angle = get_angle(tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra,
                               tracer1.dec, tracer2.x_cart, tracer2.y_cart, tracer2.z_cart,
                               tracer2.ra, tracer2.dec)
