@@ -141,6 +141,9 @@ class Interface:
         self.tracers1 = {hp_id: forest_reader.tracers
                          for hp_id, forest_reader in forest_readers.items()}
         self.tracers2 = self.tracer2_reader.tracers
+        print(self.tracers2.shape)
+        print(self.tracers2[0])
+        print(self.tracers2[0].x_cart)
 
     def read_tracer1(self, file):
         forest_reader = ForestHealpixReader(self.config["tracer1"], file, self.cosmo,
