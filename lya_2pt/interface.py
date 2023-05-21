@@ -135,7 +135,7 @@ class Interface:
             with Pool(processes=self.num_cpu) as pool:
                 pool.map(self.find_neighbours, forest_readers.values())
         else:
-            for forest_reader in forest_readers:
+            for forest_reader in forest_readers.values():
                 self.find_neighbours(forest_reader)
 
         self.tracers1 = {hp_id: forest_reader.tracers
