@@ -74,7 +74,7 @@ class ForestHealpixReader:
         """
         # parse configuration
         reader_config = parse_config(config, defaults, accepted_options)
-        self.healpix_id = int(file.split("delta-")[-1].split(".fits")[0])
+        self.healpix_id = int(file.name.split("delta-")[-1].split(".fits")[0])
 
         # extract parameters from config
         absorption_line = reader_config.get("absorption line")
