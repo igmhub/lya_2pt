@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 from configparser import ConfigParser
 
@@ -16,10 +18,15 @@ def main():
     config = ConfigParser()
     config.read(args.config)
 
+    print('Initializing')
     lya2pt = Interface(config)
+    print('Reading tracers')
     lya2pt.read_tracers()
+    print('Computing correlation')
     lya2pt.run()
+    print('Writing results')
     lya2pt.write_results()
+    print('Done')
 
 
 if __name__ == '__main__':

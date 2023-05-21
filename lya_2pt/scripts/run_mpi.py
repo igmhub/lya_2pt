@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 from mpi4py import MPI
 from configparser import ConfigParser

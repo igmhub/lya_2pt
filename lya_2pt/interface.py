@@ -149,8 +149,7 @@ class Interface:
         return forest_reader, healpix_neighbours
 
     def find_neighbours(self, forest_reader):
-        forest_reader.find_neighbours(self.tracer2_reader, self.z_min, self.z_max,
-                                      self.ang_max, self.num_cpu)
+        forest_reader.find_neighbours(self.tracer2_reader, self.z_min, self.z_max, self.ang_max)
 
     def run(self, healpix_ids=None):
         """Run the computation
