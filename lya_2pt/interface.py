@@ -138,7 +138,8 @@ class Interface:
             for forest_reader in forest_readers:
                 self.find_neighbours(forest_reader)
 
-        self.tracers1 = {hp_id: forest_reader.tracers for hp_id, forest_reader in forest_readers}
+        self.tracers1 = {hp_id: forest_reader.tracers
+                         for hp_id, forest_reader in forest_readers.items()}
         self.tracers2 = self.tracer2_reader.tracers
 
     def read_tracer1(self, file):
