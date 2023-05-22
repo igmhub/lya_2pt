@@ -1,4 +1,5 @@
 import os
+from os import mkdir
 from pathlib import Path
 
 import numpy as np
@@ -130,3 +131,14 @@ def find_path(path, enforce=True):
         return input_path
     else:
         raise RuntimeError(f'The path/file does not exist: {input_path}')
+
+
+def check_dir(dir: Path):
+    """
+    Checks that a directory exists, and that its permission group is DESI.
+    Args:
+        dir: Path
+            Directory to check
+    """
+    if not dir.is_dir():
+        mkdir(dir)

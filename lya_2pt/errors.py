@@ -29,4 +29,3 @@ class FindBinsError(Exception):
     """
         Exceptions occurred in parsing
     """
-

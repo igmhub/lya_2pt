@@ -2,12 +2,11 @@
 to distances
 """
 import numpy as np
-from numba import jit, float64
+from numba import njit, float64
 from scipy.interpolate import interp1d
 from scipy.integrate import quad
 from scipy.constants import speed_of_light
 
-from lya_2pt.errors import CosmologyError
 from lya_2pt.utils import parse_config
 
 accepted_options = [
@@ -133,7 +132,7 @@ class Cosmology:
             return dh / sqrt_Ok0 * np.sin(sqrt_Ok0 * dc / dh)
 
 
-@jit(float64(float64, float64, float64, float64, float64))
+@njit(float64(float64, float64, float64, float64, float64))
 def inv_efunc(z, Omega_m, Omega_r, Omega_k, w):
     """Hubble parameter in wCDM + curvature
 

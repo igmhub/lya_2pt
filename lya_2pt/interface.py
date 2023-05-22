@@ -7,7 +7,8 @@ from lya_2pt.cosmo import Cosmology
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
 from lya_2pt.tracer2_reader import Tracer2Reader
 from lya_2pt.utils import compute_ang_max, find_path, parse_config
-from lya_2pt.output import write_healpix_output
+from lya_2pt.output import Output
+from lya_2pt.export import Export
 
 accepted_options = [
     "num_bins_rp", "num_bins_rt", "nside", "rp_min", "rp_max", "rt_max",
@@ -91,6 +92,10 @@ class Interface:
         input_directory = find_path(config["tracer1"].get("input directory"))
         self.files = np.array(list(input_directory.glob('*fits*')))
 
+        self.output = Output(config["output"])
+        self.export = Export(config["export"], self.output.name, self.output.output_directory,
+                             self.num_cpu)
+
     def read_tracers(self, files=None):
         """Read the tracers
 
@@ -107,16 +112,15 @@ class Interface:
 
         forest_readers = {}
         healpix_neighbours = []
-        self.blinding = None
         for res in results:
             hp_id = res[0].healpix_id
             forest_readers[hp_id] = res[0]
             healpix_neighbours.append(res[1])
 
-            if self.blinding is None:
-                self.blinding = res[0].blinding
+            if self.output.blinding is None:
+                self.output.blinding = res[0].blinding
             else:
-                assert self.blinding == res[0].blinding
+                assert self.output.blinding == res[0].blinding
 
         healpix_neighbours = np.unique(np.hstack(healpix_neighbours))
 
@@ -190,6 +194,6 @@ class Interface:
     def write_results(self):
         if self.config['compute'].getboolean('compute correlation'):
             for healpix_id, result in self.xi_output.items():
-                write_healpix_output(result, healpix_id, self.config, self.settings, self.blinding)
+                self.output.write_healpix_output(result, healpix_id, self.config, self.settings)
 
         # TODO: add other modes
