@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-
 import argparse
+import time
 from configparser import ConfigParser
 
 from lya_2pt.interface import Interface
@@ -20,10 +20,19 @@ def main():
 
     print('Initializing')
     lya2pt = Interface(config)
+
     print('Reading tracers')
+    t1 = time.time()
     lya2pt.read_tracers()
+    t2 = time.time()
+    print(f'Time reading: {(t2-t1):.3f}')
+
     print('Computing correlation')
+    t1 = time.time()
     lya2pt.run()
+    t2 = time.time()
+    print(f'Time computing: {(t2-t1):.3f}')
+
     print('Writing results')
     lya2pt.write_results()
     print('Done')
