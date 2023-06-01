@@ -53,7 +53,7 @@ def read_from_image(hdul, absorption_line, healpix_id):
 
     tracers = np.empty(los_id_array.shape, dtype=Tracer)
     for i, (los_id, ra, dec) in enumerate(zip(los_id_array, ra_array, dec_array)):
-        mask = np.isnan(deltas_array[i])
+        mask = ~np.isnan(deltas_array[i])
         tracers[i] = Tracer(healpix_id, los_id, ra, dec, deltas_array[i][mask],
                             weights_array[i][mask], log_lambda[mask], z[mask])
 
