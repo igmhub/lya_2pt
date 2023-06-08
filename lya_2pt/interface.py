@@ -3,6 +3,7 @@ from multiprocessing import Pool
 import numpy as np
 
 from lya_2pt.correlation import compute_xi
+from lya_2pt.distortion import compute_dmat
 from lya_2pt.cosmo import Cosmology
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
 from lya_2pt.tracer2_reader import Tracer2Reader
@@ -11,8 +12,9 @@ from lya_2pt.output import Output
 from lya_2pt.export import Export
 
 accepted_options = [
-    "num_bins_rp", "num_bins_rt", "nside", "rp_min", "rp_max", "rt_max",
-    "z_min", "z_max", "num processors", "global_z_min"
+    "num_bins_rp", "num_bins_rt", "num_bins_rp_model", "num_bins_rt_model",
+    "nside", "rp_min", "rp_max", "rt_max", "z_min", "z_max", "num processors", "global_z_min",
+    "rejection_fraction"
 ]
 
 defaults = {
@@ -24,8 +26,11 @@ defaults = {
     "rt_max": 200,
     "num_bins_rp": 50,
     "num_bins_rt": 50,
+    "num_bins_rp_model": 50,
+    "num_bins_rt_model": 50,
     "num processors": 1,
-    "global_z_min": 1.7
+    "global_z_min": 1.7,
+    "rejection_fraction": 0.99
 }
 
 
@@ -175,7 +180,7 @@ class Interface:
             healpix_ids = list(self.tracers1.keys())
 
         self.xi_output = {}
-        if self.config['compute'].getboolean('compute correlation'):
+        if self.config['compute'].getboolean('compute-correlation'):
             if self.num_cpu > 1:
                 arguments = [(tracers1, self.tracers2, self.settings)
                              for tracers1 in self.tracers1.values()]
@@ -189,11 +194,30 @@ class Interface:
                 for hp_id, tracers1 in self.tracers1.items():
                     self.xi_output[hp_id] = compute_xi(tracers1, self.tracers2, self.settings)
 
+        self.dmat_output = {}
+        if self.config['compute'].getboolean('compute-distortion-matrix'):
+            if self.num_cpu > 1:
+                arguments = [(tracers1, self.tracers2, self.settings)
+                             for tracers1 in self.tracers1.values()]
+
+                with Pool(processes=self.num_cpu) as pool:
+                    results = pool.starmap(compute_dmat, arguments)
+
+                for hp_id, res in zip(self.tracers1.keys(), results):
+                    self.dmat_output[hp_id] = res
+            else:
+                for hp_id, tracers1 in self.tracers1.items():
+                    self.dmat_output[hp_id] = compute_dmat(tracers1, self.tracers2, self.settings)
+
         # TODO: add other computations
 
     def write_results(self):
-        if self.config['compute'].getboolean('compute correlation'):
+        if self.config['compute'].getboolean('compute-correlation'):
             for healpix_id, result in self.xi_output.items():
-                self.output.write_healpix_output(result, healpix_id, self.config, self.settings)
+                self.output.write_cf_healpix(result, healpix_id, self.config, self.settings)
+
+        if self.config['compute'].getboolean('compute-distortion-matrix'):
+            for healpix_id, result in self.dmat_output.items():
+                self.output.write_dmat_healpix(result, healpix_id, self.config, self.settings)
 
         # TODO: add other modes

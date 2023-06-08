@@ -35,6 +35,11 @@ def read_from_image(hdul, absorption_line, healpix_id):
     dec_array = hdul["METADATA"]["DEC"][:]
     dwave = hdul["LAMBDA"].read_header()['DELTA_LAMBDA']
 
+    try:
+        order = hdul["METADATA"]["ORDER"][:]
+    except (KeyError, ValueError):
+        order = np.ones(hdul["METADATA"].get_nrows())
+
     deltas_array = hdul["DELTA"].read().astype(float)
     weights_array = hdul["WEIGHT"].read().astype(float)
     wave_solution = None
@@ -54,7 +59,7 @@ def read_from_image(hdul, absorption_line, healpix_id):
     tracers = np.empty(los_id_array.shape, dtype=Tracer)
     for i, (los_id, ra, dec) in enumerate(zip(los_id_array, ra_array, dec_array)):
         mask = ~np.isnan(deltas_array[i])
-        tracers[i] = Tracer(healpix_id, los_id, ra, dec, deltas_array[i][mask],
+        tracers[i] = Tracer(healpix_id, los_id, ra, dec, order, deltas_array[i][mask],
                             weights_array[i][mask], log_lambda[mask], z[mask])
 
     return tracers, wave_solution, dwave
@@ -96,6 +101,10 @@ def read_from_hdu(hdul, absorption_line, healpix_id):
         ra = header['RA']
         dec = header['DEC']
 
+        order = 1
+        if 'ORDER' in header:
+            order = header['ORDER']
+
         delta = hdu["DELTA"][:].astype(float)
         weights = hdu["WEIGHT"][:].astype(float)
         if 'LOGLAM' in hdu.get_colnames():
@@ -111,6 +120,6 @@ def read_from_hdu(hdul, absorption_line, healpix_id):
             raise ReaderException(
                 "Did not find LOGLAM or LAMBDA in delta file")
 
-        tracers.append(Tracer(healpix_id, los_id, ra, dec, delta, weights, log_lambda, z))
+        tracers.append(Tracer(healpix_id, los_id, ra, dec, order, delta, weights, log_lambda, z))
 
     return np.array(tracers), wave_solution, dwave

@@ -53,7 +53,7 @@ class Tracer:
     z: array of float
     The redshift associated with the deltas field.
     """
-    def __init__(self, healpix_id, los_id, ra, dec, deltas, weights, log_lambda, z):
+    def __init__(self, healpix_id, los_id, ra, dec, order, deltas, weights, log_lambda, z):
         """Initializes class instance
 
         neighbours class attribute is initialized to None. Method add_neighbours
@@ -91,6 +91,7 @@ class Tracer:
         self.los_id = los_id
         self.ra = ra
         self.dec = dec
+        self.order = order
 
         self.x_cart = np.cos(ra) * np.cos(dec)
         self.y_cart = np.sin(ra) * np.cos(dec)
@@ -100,6 +101,10 @@ class Tracer:
         self.weights = weights
         self.log_lambda = log_lambda
         self.z = z
+
+        self.sum_weights = np.sum(weights)
+        self.logwave_term = log_lambda - np.sum(log_lambda * weights) / self.sum_weights
+        self.term3_norm = (weights * self.logwave_term**2).sum()
 
         self.comoving_distance = None
         self.comoving_transverse_distance = None
@@ -117,6 +122,7 @@ class Tracer:
         False otherwise.
         """
         self.neighbours = neighbours
+        self.num_neighbours = np.sum(neighbours)
 
     def compute_comoving_distances(self, cosmo):
         """Compute the comoving distance and the transverse comoving distance
@@ -129,6 +135,7 @@ class Tracer:
         assert self.z.shape == self.deltas.shape
         self.comoving_distance = cosmo.comoving_distance(self.z)
         self.comoving_transverse_distance = cosmo.comoving_transverse_distance(self.z)
+        self.distances = np.c_[self.comoving_distance, self.comoving_transverse_distance]
 
     def check_if_neighbour(self, other, auto_flag, z_min, z_max):
         """Check if other tracer is a neighbour
@@ -171,6 +178,10 @@ class Tracer:
         self.deltas = deltas
         self.weights = weights
         self.z = 10**log_lambda/ABSORBER_IGM.get(absorption_line) - 1.0
+
+        self.sum_weights = np.sum(weights)
+        self.logwave_term = log_lambda - np.sum(log_lambda * weights) / self.sum_weights
+        self.term3_norm = (weights * self.logwave_term**2).sum()
 
     def project(self, order):
         self.deltas = project_deltas(self.log_lambda, self.deltas, self.weights, order)
