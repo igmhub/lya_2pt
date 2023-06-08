@@ -206,7 +206,7 @@ class Export:
         results.write(
             [self.r_par, self.r_trans, self.z_grid, self.mean_correlation,
              self.covariance, distortion, self.num_pairs],
-            names=['DA', 'RP', 'RT', 'Z', 'CO', 'DM', 'NB'],
+            names=['RP', 'RT', 'Z', 'DA', 'CO', 'DM', 'NB'],
             comment=comment,
             header=header,
             extname='COR'

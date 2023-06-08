@@ -22,6 +22,7 @@ defaults = {
     "use h units": True,
 }
 
+
 class Cosmology:
     """Class for cosmological computations based on astropy cosmology.
 
@@ -61,7 +62,6 @@ class Cosmology:
         # Omega_m, Omega_r, Omega_k, w
         self._inv_efunc_args = (config.getfloat('omega_m'), config.getfloat('omega_r'),
                                 self._Omega_k, config.getfloat('w0'))
-
 
         z = np.linspace(0, 10, 10000)
         comoving_distance = self._comoving_distance(z)
