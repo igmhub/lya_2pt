@@ -2,7 +2,8 @@
 import numpy as np
 
 from lya_2pt.constants import ABSORBER_IGM
-from lya_2pt.tracer_utils import rebin, project_deltas
+from lya_2pt.tracer_utils import rebin, project_deltas, get_angle
+from lya_2pt.tracer_utils import compute_rp, compute_rt
 
 
 class Tracer:
@@ -137,7 +138,7 @@ class Tracer:
         self.comoving_transverse_distance = cosmo.comoving_transverse_distance(self.z)
         self.distances = np.c_[self.comoving_distance, self.comoving_transverse_distance]
 
-    def check_if_neighbour(self, other, auto_flag, z_min, z_max):
+    def is_neighbour(self, other, auto_flag, z_min, z_max, rp_max, rt_max):
         """Check if other tracer is a neighbour
 
         Arguments
@@ -156,17 +157,37 @@ class Tracer:
         # this is to avoid double counting in the autocorrelation
         if auto_flag and (self.ra < other.ra):
             return False
+
         # we don't correlate things in the same line of sight, due to continuum
         # fitting errors
         if other.los_id == self.los_id:
             return False
 
-        # redshift checks
+        # Check if they are in the same redshift bin
         z_check = (other.z[-1] + self.z[-1]) / 2.
         if z_check < z_min or z_check >= z_max:
             return False
 
-        # Add more conditions
+        # Compute angle between forests
+        angle = get_angle(self.x_cart, self.y_cart, self.z_cart, self.ra, self.dec,
+                          other.x_cart, other.y_cart, other.z_cart, other.ra, other.dec)
+
+        # Check if transverse separation is small enough
+        smallest_rt = compute_rt(self.comoving_transverse_distance,
+                                 other.comoving_transverse_distance,
+                                 i=0, j=0, sin_angle=np.sin(angle/2))
+        if smallest_rt > rt_max:
+            return False
+
+        # # Check if line-of-sight separation is small enough
+        # cos_angle = np.cos(angle/2)
+        # rp_test1 = compute_rp(self.comoving_distance, other.comoving_distance, 0, 0, cos_angle)
+        # rp_test2 = compute_rp(self.comoving_distance, other.comoving_distance, 0, -1, cos_angle)
+        # rp_test3 = compute_rp(self.comoving_distance, other.comoving_distance, -1, 0, cos_angle)
+        # rp_test4 = compute_rp(self.comoving_distance, other.comoving_distance, -1, -1, cos_angle)
+
+        # if rp_test1 > rp_max and rp_test2 > rp_max and rp_test3 > rp_max and rp_test4 > rp_max:
+        #     return False
 
         return True
 

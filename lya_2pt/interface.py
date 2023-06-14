@@ -84,6 +84,8 @@ class Interface:
         self.settings = parse_config(config["settings"], defaults, accepted_options)
         self.z_min = self.settings.getfloat("z_min")
         self.z_max = self.settings.getfloat("z_max")
+        self.rp_max = self.settings.getfloat("rp_max")
+        self.rt_max = self.settings.getfloat("rt_max")
         self.nside = self.settings.getint("nside")
         self.num_cpu = self.settings.getint("num processors")
 
@@ -162,7 +164,8 @@ class Interface:
         return forest_reader, healpix_neighbours
 
     def find_neighbours(self, forest_reader):
-        forest_reader.find_neighbours(self.tracer2_reader, self.z_min, self.z_max, self.ang_max)
+        forest_reader.find_neighbours(self.tracer2_reader, self.z_min, self.z_max,
+                                      self.rp_max, self.rt_max)
         return forest_reader
 
     def run(self, healpix_ids=None):

@@ -5,6 +5,19 @@ SMALL_ANGLE_CUT_OFF = 2./3600.*np.pi/180.  # 2 arcsec
 
 
 @njit
+def compute_rp(dc1, dc2, i, j, cos_angle, auto_flag):
+    if auto_flag:
+        return np.abs((dc1[i] - dc2[j]) * cos_angle)
+
+    return (dc1[i] - dc2[j]) * cos_angle
+
+
+@njit
+def compute_rt(dm1, dm2, i, j, sin_angle):
+    return (dm1[i] + dm2[j]) * sin_angle
+
+
+@njit
 def get_angle(x1, y1, z1, ra1, dec1, x2, y2, z2, ra2, dec2):
     """Compute angle between two tracers"""
     cos = x1 * x2 + y1 * y2 + z1 * z2
