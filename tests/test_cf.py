@@ -1,6 +1,5 @@
 import fitsio
 import numpy as np
-from math import isclose
 from configparser import ConfigParser
 
 from lya_2pt import Interface

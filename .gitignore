@@ -10,3 +10,7 @@
 lya_2pt.egg-info/
 
 .output/
+
+.coverage
+
+coverage.xml
