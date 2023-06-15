@@ -1,9 +1,11 @@
+import time
 import fitsio
 import numpy as np
+from pathlib import Path
 from configparser import ConfigParser
 
 from lya_2pt import Interface
-from lya_2pt.utils import find_path
+from lya_2pt.utils import find_path, check_dir
 
 
 def test_cf():
@@ -12,6 +14,11 @@ def test_cf():
 
     print('Initializing')
     lya2pt = Interface(config)
+    output_dir = Path('.output_' + str(time.time()))
+    check_dir(output_dir)
+    lya2pt.output.output_directory = output_dir
+    lya2pt.export.output_directory = output_dir
+
     lya2pt.read_tracers()
     lya2pt.run()
     lya2pt.write_results()

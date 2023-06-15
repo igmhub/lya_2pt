@@ -9,7 +9,7 @@
 
 lya_2pt.egg-info/
 
-.output/
+.output*/
 
 .coverage
 
