@@ -20,17 +20,22 @@ def test_cf():
 
     cf_file = lya2pt.export.output_directory / f'{lya2pt.export.name}-exp.fits.gz'
     hdul_cf = fitsio.FITS(cf_file)
-    assert isclose(np.sum(hdul_cf[1]['DA'][:]), 0.0024777050405812573)
-    assert isclose(np.sum(hdul_cf[1]['CO'][:]), 0.00030179352264525305)
-    assert isclose(np.sum(hdul_cf[1]['RP'][:]), 165028.4959600392)
-    assert isclose(np.sum(hdul_cf[1]['RT'][:]), 108809.82787843319)
-    assert isclose(np.sum(hdul_cf[1]['Z'][:]), 3980.341712981344)
-    assert isclose(np.sum(hdul_cf[1]['NB'][:]), 15856904.0)
+    cf_file_test = find_path('output/' + f'{lya2pt.export.name}-exp.fits.gz')
+    hdul_cf_test = fitsio.FITS(cf_file_test)
+
+    assert np.allclose(hdul_cf[1]['DA'][:], hdul_cf_test[1]['DA'][:])
+    assert np.allclose(hdul_cf[1]['CO'][:], hdul_cf_test[1]['CO'][:])
+    assert np.allclose(hdul_cf[1]['RP'][:], hdul_cf_test[1]['RP'][:])
+    assert np.allclose(hdul_cf[1]['RT'][:], hdul_cf_test[1]['RT'][:])
+    assert np.allclose(hdul_cf[1]['Z'][:], hdul_cf_test[1]['Z'][:])
+    assert np.allclose(hdul_cf[1]['NB'][:], hdul_cf_test[1]['NB'][:])
 
     dmat_file = lya2pt.export.output_directory / f'dmat_{lya2pt.export.name}-exp.fits.gz'
     hdul_dmat = fitsio.FITS(dmat_file)
-    assert isclose(np.sum(hdul_dmat[1]['DM'][:]), 145.19076424842885)
-    assert isclose(np.sum(hdul_dmat[1]['WDM'][:]), 6632386505.4460745)
-    assert isclose(np.sum(hdul_dmat[2]['RP'][:]), 165028.4959600392)
-    assert isclose(np.sum(hdul_dmat[2]['RT'][:]), 108809.82787843319)
-    assert isclose(np.sum(hdul_dmat[2]['Z'][:]), 3980.341712981344)
+    dmat_file_test = find_path('output/' + f'dmat_{lya2pt.export.name}-exp.fits.gz')
+    hdul_dmat_test = fitsio.FITS(dmat_file_test)
+    assert np.allclose(hdul_dmat[1]['DM'][:], hdul_dmat_test[1]['DM'][:])
+    assert np.allclose(hdul_dmat[1]['WDM'][:], hdul_dmat_test[1]['WDM'][:])
+    assert np.allclose(hdul_dmat[2]['RP'][:], hdul_dmat_test[2]['RP'][:])
+    assert np.allclose(hdul_dmat[2]['RT'][:], hdul_dmat_test[2]['RT'][:])
+    assert np.allclose(hdul_dmat[2]['Z'][:], hdul_dmat_test[2]['Z'][:])
