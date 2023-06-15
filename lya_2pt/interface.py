@@ -4,16 +4,16 @@ import numpy as np
 
 from lya_2pt.correlation import compute_xi
 from lya_2pt.distortion import compute_dmat
-from lya_2pt.cosmo import Cosmology
+from lya_2pt.cosmo import Cosmology, PiccaCosmo
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
 from lya_2pt.tracer2_reader import Tracer2Reader
-from lya_2pt.utils import compute_ang_max, find_path, parse_config
+from lya_2pt.utils import find_path, parse_config, compute_ang_max
 from lya_2pt.output import Output
 from lya_2pt.export import Export
 
 accepted_options = [
     "num_bins_rp", "num_bins_rt", "num_bins_rp_model", "num_bins_rt_model",
-    "nside", "rp_min", "rp_max", "rt_max", "z_min", "z_max", "num processors", "global_z_min",
+    "nside", "rp_min", "rp_max", "rt_max", "z_min", "z_max", "num processors",
     "rejection_fraction"
 ]
 
@@ -29,7 +29,6 @@ defaults = {
     "num_bins_rp_model": 50,
     "num_bins_rt_model": 50,
     "num processors": 1,
-    "global_z_min": 1.7,
     "rejection_fraction": 0.99
 }
 
@@ -78,7 +77,11 @@ class Interface:
         self.config = config
 
         # intialize cosmology
-        self.cosmo = Cosmology(config["cosmology"])
+        use_picca_cosmo = config["cosmology"].getboolean('use_picca_cosmo', False)
+        if use_picca_cosmo:
+            self.cosmo = PiccaCosmo(config["cosmology"])
+        else:
+            self.cosmo = Cosmology(config["cosmology"])
 
         # parse config
         self.settings = parse_config(config["settings"], defaults, accepted_options)
@@ -88,10 +91,8 @@ class Interface:
         self.rt_max = self.settings.getfloat("rt_max")
         self.nside = self.settings.getint("nside")
         self.num_cpu = self.settings.getint("num processors")
+        self.ang_max = compute_ang_max(self.cosmo, self.settings.getfloat('rt_max'), 1.7)
 
-        # maximum angle for two lines-of-sight to have neightbours
-        self.ang_max = compute_ang_max(self.cosmo, self.settings.getfloat('rt_max'),
-                                       self.settings.getfloat("global_z_min"))
         # check if we are working with an auto-correlation
         self.auto_flag = "tracer2" not in config
 
@@ -185,7 +186,7 @@ class Interface:
         self.xi_output = {}
         if self.config['compute'].getboolean('compute-correlation'):
             if self.num_cpu > 1:
-                arguments = [(tracers1, self.tracers2, self.settings)
+                arguments = [(tracers1, self.tracers2, self.settings, self.auto_flag)
                              for tracers1 in self.tracers1.values()]
 
                 with Pool(processes=self.num_cpu) as pool:
@@ -195,7 +196,8 @@ class Interface:
                     self.xi_output[hp_id] = res
             else:
                 for hp_id, tracers1 in self.tracers1.items():
-                    self.xi_output[hp_id] = compute_xi(tracers1, self.tracers2, self.settings)
+                    self.xi_output[hp_id] = compute_xi(tracers1, self.tracers2, self.settings,
+                                                       self.auto_flag)
 
         self.dmat_output = {}
         if self.config['compute'].getboolean('compute-distortion-matrix'):
@@ -210,7 +212,8 @@ class Interface:
                     self.dmat_output[hp_id] = res
             else:
                 for hp_id, tracers1 in self.tracers1.items():
-                    self.dmat_output[hp_id] = compute_dmat(tracers1, self.tracers2, self.settings)
+                    self.dmat_output[hp_id] = compute_dmat(tracers1, self.tracers2, self.settings,
+                                                           self.auto_flag)
 
         # TODO: add other computations
 

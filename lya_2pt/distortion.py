@@ -1,9 +1,10 @@
 import numpy as np
 from numba import njit
 from lya_2pt.tracer_utils import get_angle
+from lya_2pt.compute_utils import get_num_pairs, get_bin
 
 
-def compute_dmat(tracers1, tracers2, config):
+def compute_dmat(tracers1, tracers2, config, auto_flag=False):
     rejection_fraction = config.getfloat('rejection_fraction')
     rp_min = config.getfloat('rp_min')
     rp_max = config.getfloat('rp_max')
@@ -30,33 +31,37 @@ def compute_dmat(tracers1, tracers2, config):
         num_pairs_used += w.sum()
 
         for tracer2 in tracers2[tracer1.neighbours][w]:
-            angle = get_angle(tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra,
-                              tracer1.dec, tracer2.x_cart, tracer2.y_cart, tracer2.z_cart,
-                              tracer2.ra, tracer2.dec)
+            angle = get_angle(
+                tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra, tracer1.dec,
+                tracer2.x_cart, tracer2.y_cart, tracer2.z_cart, tracer2.ra, tracer2.dec
+                )
 
-            compute_dmat_pair(tracer1.weights, tracer1.z, tracer1.distances, tracer1.order,
-                              tracer1.sum_weights, tracer1.logwave_term, tracer1.term3_norm,
-                              tracer2.weights, tracer2.z, tracer2.distances, tracer2.order,
-                              tracer2.sum_weights, tracer2.logwave_term, tracer2.term3_norm,
-                              angle, rp_min, rp_max, rt_max, num_bins_rp, num_bins_rt,
-                              num_bins_rp_model, num_bins_rt_model, distortion, weights_dmat,
-                              rp_grid, rt_grid, z_grid, weights_grid)
+            compute_dmat_pair(
+                tracer1.weights, tracer1.z, tracer1.distances, tracer1.order,
+                tracer1.sum_weights, tracer1.logwave_term, tracer1.term3_norm,
+                tracer2.weights, tracer2.z, tracer2.distances, tracer2.order,
+                tracer2.sum_weights, tracer2.logwave_term, tracer2.term3_norm,
+                angle, auto_flag, rp_min, rp_max, rt_max, num_bins_rp, num_bins_rt,
+                num_bins_rp_model, num_bins_rt_model, distortion, weights_dmat,
+                rp_grid, rt_grid, z_grid, weights_grid
+                )
 
     return (distortion, weights_dmat, rp_grid, rt_grid, z_grid,
             weights_grid, num_pairs, num_pairs_used)
 
 
 # @njit
-def compute_dmat_pair(weights1, z1, distances1, order1, sum_weights1, logwave_term1, term3_norm1,
-                      weights2, z2, distances2, order2, sum_weights2, logwave_term2, term3_norm2,
-                      angle, rp_min, rp_max, rt_max, rp_size, rt_size, rp_size_model, rt_size_model,
-                      distortion, weights_dmat, rp_grid, rt_grid, z_grid, weights_grid):
+def compute_dmat_pair(
+        weights1, z1, distances1, order1, sum_weights1, logwave_term1, term3_norm1,
+        weights2, z2, distances2, order2, sum_weights2, logwave_term2, term3_norm2, angle,
+        auto_flag, rp_min, rp_max, rt_max, rp_size, rt_size, rp_size_model, rt_size_model,
+        distortion, weights_dmat, rp_grid, rt_grid, z_grid, weights_grid):
 
     sin_angle = np.sin(angle / 2)
     cos_angle = np.cos(angle / 2)
 
     num_pairs = get_num_pairs(distances1, distances2, sin_angle, cos_angle,
-                              rp_min, rp_max, rt_max)
+                              rp_min, rp_max, rt_max, auto_flag)
 
     pixel_pairs, rp_rt_pairs = get_pixel_pairs(distances1, distances2, sin_angle,
                                                cos_angle, rp_min, rp_max, rt_max, rp_size, rt_size,
@@ -81,27 +86,6 @@ def compute_dmat_pair(weights1, z1, distances1, order1, sum_weights1, logwave_te
     distortion[unique_data_bins, unique_model_bins[:, None]] += pair_dmat
     weights_dmat[unique_data_bins] += pair_wdmat
     weights_grid[unique_model_bins] += pair_weights_eff
-
-
-@njit
-def get_num_pairs(distances1, distances2, sin_angle, cos_angle, rp_min, rp_max, rt_max):
-    count = int(0)
-    for dc1, dm1 in distances1:
-        for dc2, dm2 in distances2:
-            rp = np.abs((dc1 - dc2) * cos_angle)
-            rt = (dm1 + dm2) * sin_angle
-
-            if (rp < rp_min) or (rp >= rp_max) or (rt >= rt_max):
-                continue
-
-            count += 1
-
-    return count
-
-
-@njit
-def get_bin(r, r_min, r_max, r_size):
-    return np.int32(np.floor((r - r_min) / (r_max - r_min) * r_size))
 
 
 @njit
@@ -198,14 +182,16 @@ def write_etas(num_model_bins, weight12, log_wave_term1, log_wave_term2,
                eta1_view, eta2_view, eta3_view, eta4_view,
                eta5, eta6, eta7, eta8, dmat_view):
     for i in range(num_model_bins):
-        dmat_view[i] += weight12 * (eta1_view[i]
-                                    + eta2_view[i]
-                                    + eta3_view[i] * log_wave_term2
-                                    + eta4_view[i] * log_wave_term1
-                                    + eta5[i]
-                                    + eta6[i] * log_wave_term2
-                                    + eta7[i] * log_wave_term1
-                                    + eta8[i] * log_wave_term1 * log_wave_term2)
+        dmat_view[i] += weight12 * (
+            eta1_view[i]
+            + eta2_view[i]
+            + eta3_view[i] * log_wave_term2
+            + eta4_view[i] * log_wave_term1
+            + eta5[i]
+            + eta6[i] * log_wave_term2
+            + eta7[i] * log_wave_term1
+            + eta8[i] * log_wave_term1 * log_wave_term2
+            )
 
 
 @njit

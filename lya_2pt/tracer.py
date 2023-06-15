@@ -3,20 +3,14 @@ import numpy as np
 
 from lya_2pt.constants import ABSORBER_IGM
 from lya_2pt.tracer_utils import rebin, project_deltas, get_angle
-from lya_2pt.tracer_utils import compute_rp, compute_rt
+from lya_2pt.compute_utils import compute_rp, compute_rt
 
 
 class Tracer:
     """Class contanining the information about the tracers.
 
     Reading functions should create instances of this class, and these instances
-    will be used to compute the correlation functions, distortion matrixes, ...
-
-    Methods
-    -------
-    __init__
-    add_neighbours
-    compute_comoving_distances
+    will be used to compute the correlation functions, distortion matrices, ...
 
     Attributes
     ----------
@@ -109,6 +103,7 @@ class Tracer:
 
         self.comoving_distance = None
         self.comoving_transverse_distance = None
+        self.distances = None
 
         self.neighbours = None
 
@@ -154,12 +149,14 @@ class Tracer:
         is_neighbour: bool
         True if the tracers are neighbours. False otherwise
         """
-        # this is to avoid double counting in the autocorrelation
-        if auto_flag and (self.ra < other.ra):
+        # This is to avoid double counting in the autocorrelation
+        # The equality check is purely for compatibility with picca
+        # Somehow there are a few forests with identical RA
+        if auto_flag and (self.ra <= other.ra):
             return False
 
-        # we don't correlate things in the same line of sight, due to continuum
-        # fitting errors
+        # We don't correlate things in the same line of sight
+        # due to continuum fitting errors
         if other.los_id == self.los_id:
             return False
 
@@ -179,15 +176,21 @@ class Tracer:
         if smallest_rt > rt_max:
             return False
 
-        # # Check if line-of-sight separation is small enough
-        # cos_angle = np.cos(angle/2)
-        # rp_test1 = compute_rp(self.comoving_distance, other.comoving_distance, 0, 0, cos_angle)
-        # rp_test2 = compute_rp(self.comoving_distance, other.comoving_distance, 0, -1, cos_angle)
-        # rp_test3 = compute_rp(self.comoving_distance, other.comoving_distance, -1, 0, cos_angle)
-        # rp_test4 = compute_rp(self.comoving_distance, other.comoving_distance, -1, -1, cos_angle)
+        # Check if line-of-sight separation is small enough
+        cos_angle = np.cos(angle/2)
+        if self.comoving_distance[-1] < other.comoving_distance[0]:
+            rp_test = compute_rp(self.comoving_distance, other.comoving_distance,
+                                 i=-1, j=0, cos_angle=cos_angle, auto_flag=auto_flag)
 
-        # if rp_test1 > rp_max and rp_test2 > rp_max and rp_test3 > rp_max and rp_test4 > rp_max:
-        #     return False
+            if np.abs(rp_test) > rp_max:
+                return False
+
+        if self.comoving_distance[0] > other.comoving_distance[-1]:
+            rp_test = compute_rp(self.comoving_distance, other.comoving_distance,
+                                 i=0, j=-1, cos_angle=cos_angle, auto_flag=auto_flag)
+
+            if np.abs(rp_test) > rp_max:
+                return False
 
         return True
 

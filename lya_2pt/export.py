@@ -26,7 +26,7 @@ class Export:
         self.num_cpu = num_cpu
         self.name = name
         self.output_directory = output_directory
-        self.healpix_dir = self.output_directory / f'cf_{self.name}'
+        self.healpix_dir = self.output_directory / f'healpix_files_{self.name}'
         assert self.healpix_dir.is_dir()
 
         self.export_correlation = self.config.getboolean('export-correlation')
