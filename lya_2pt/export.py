@@ -5,11 +5,12 @@ from multiprocessing import Pool
 from lya_2pt.utils import parse_config
 
 accepted_options = [
-    "export-correlation", "smooth-covariance"
+    "export-correlation", "export-distortion", "smooth-covariance"
 ]
 
 defaults = {
     "export-correlation": True,
+    "export-distortion": True,
     "smooth-covariance": True,
 }
 
@@ -30,6 +31,7 @@ class Export:
         assert self.healpix_dir.is_dir()
 
         self.export_correlation = self.config.getboolean('export-correlation')
+        self.export_distortion = self.config.getboolean('export-distortion')
 
     def run(self, global_config, settings):
         if self.export_correlation:
@@ -39,6 +41,10 @@ class Export:
             self.compute_covariance()
 
             self.write_correlation(global_config, settings)
+
+        if self.export_distortion:
+            self.read_distortion()
+            self.write_distortion(global_config, settings)
 
         # self.distortion = None
         # self.distortion_flag = config.getboolean('distortion')
@@ -54,7 +60,7 @@ class Export:
         #     pass
 
     def read_correlations(self):
-        files = np.array(list(self.healpix_dir.glob('*fits*')))
+        files = np.array(list(self.healpix_dir.glob('correlation*fits*')))
 
         with fitsio.FITS(files[0]) as hdul:
             header = hdul[1].read_header()
@@ -98,6 +104,55 @@ class Export:
             weights = hdul[2]['WEIGHT_SUM'][:]
 
         return correlation, weights, rp, rt, z, num_pairs
+
+    def read_distortion(self):
+        files = np.array(list(self.healpix_dir.glob('distortion*fits*')))
+
+        with fitsio.FITS(files[0]) as hdul:
+            header = hdul[1].read_header()
+            self.dist_rp_min = header['R_PAR_MIN']
+            self.dist_rp_max = header['R_PAR_MAX']
+            self.dist_rt_max = header['R_TRANS_MAX']
+            self.dist_rp_size = header['NUM_BINS_R_PAR']
+            self.dist_rt_size = header['NUM_BINS_R_TRANS']
+
+        with Pool(processes=self.num_cpu) as pool:
+            results = pool.map(self._read_distortion, files)
+
+        results = list(results)
+        self.distortion = np.array([item[0] for item in results]).sum(axis=0)
+        self.dist_weights = np.array([item[1] for item in results]).sum(axis=0)
+        self.dist_rp = np.array([item[2] for item in results]).sum(axis=0)
+        self.dist_rt = np.array([item[3] for item in results]).sum(axis=0)
+        self.dist_z = np.array([item[4] for item in results]).sum(axis=0)
+        self.dist_eff_weights = np.array([item[5] for item in results]).sum(axis=0)
+        self.dist_num_pairs = np.array([item[6] for item in results]).sum(axis=0)
+        self.dist_num_pairs_used = np.array([item[7] for item in results]).sum(axis=0)
+
+        w = self.dist_weights > 0
+        self.distortion[w] /= self.dist_weights[w, None]
+
+        w = self.dist_eff_weights > 0
+        self.dist_rp[w] /= self.dist_eff_weights[w]
+        self.dist_rt[w] /= self.dist_eff_weights[w]
+        self.dist_z[w] /= self.dist_eff_weights[w]
+
+    def _read_distortion(self, file):
+        with fitsio.FITS(file) as hdul:
+            header = hdul[1].read_header()
+            num_pairs = header['NUM_PAIRS']
+            num_pairs_used = header['PAIRS_USED']
+
+            rp = hdul[1]['R_PAR'][:]
+            rt = hdul[1]['R_TRANS'][:]
+            z = hdul[1]['Z'][:]
+            eff_weights = hdul[1]['EFF_WEIGHTS'][:]
+
+            # TODO implement blinding support
+            distortion = hdul[2]['DISTORTION'][:]
+            weights = hdul[2]['DISTORTION_WEIGHTS'][:]
+
+        return distortion, weights, rp, rt, z, eff_weights, num_pairs, num_pairs_used
 
     def compute_covariance(self):
         meanless_xi_times_weights = self.weights * (self.correlations - self.mean_correlation)
@@ -217,6 +272,77 @@ class Export:
             [self.r_par, self.r_trans, self.z_grid],
             names=['DMRP', 'DMRT', 'DMZ'],
             comment=comment,
+            extname='DMATRIX'
+        )
+        results.close()
+
+    def write_distortion(self, global_config, settings):
+        output_file = self.output_directory / f'dmat_{self.name}-exp.fits.gz'
+        results = fitsio.FITS(output_file, 'rw', clobber=True)
+
+        header = [{
+            'name': 'R_PAR_MIN',
+            'value': settings.getfloat('rp_min'),
+            'comment': 'Minimum r-parallel [h^-1 Mpc]'
+        }, {
+            'name': 'R_PAR_MAX',
+            'value': settings.getfloat('rp_max'),
+            'comment': 'Maximum r-parallel [h^-1 Mpc]'
+        }, {
+            'name': 'R_TRANS_MAX',
+            'value': settings.getfloat('rt_max'),
+            'comment': 'Maximum r-transverse [h^-1 Mpc]'
+        }, {
+            'name': 'NUM_BINS_R_PAR',
+            'value': settings.getint('num_bins_rp'),
+            'comment': 'Number of bins in r-parallel'
+        }, {
+            'name': 'NUM_BINS_R_TRANS',
+            'value': settings.getint('num_bins_rt'),
+            'comment': 'Number of bins in r-transverse'
+        }, {
+            'name': 'Z_MIN',
+            'value': settings.getfloat('z_min'),
+            'comment': 'Minimum redshift of pairs'
+        }, {
+            'name': 'Z_MAX',
+            'value': settings.getfloat('z_max'),
+            'comment': 'Maximum redshift of pairs'
+        }, {
+            'name': 'REJECTION_FRAC',
+            'value': settings.getfloat('rejection_fraction'),
+            'comment': 'Rejection fraction when computing distortion'
+        }, {
+            'name': 'NUM_PAIRS',
+            'value': self.dist_num_pairs,
+            'comment': 'Healpix nside'
+        }, {
+            'name': 'PAIRS_USED',
+            'value': self.dist_num_pairs_used,
+            'comment': 'Healpix nside'
+        }, {
+            'name': 'OMEGA_M',
+            'value': global_config['cosmology'].getfloat('Omega_m'),
+            'comment': 'Omega_matter(z=0) of fiducial LambdaCDM cosmology'
+        }, {
+            'name': "BLINDING",
+            'value': 'placeholder',  # TODO Correct this once blinding implemented
+            'comment': 'String specifying the blinding strategy'
+        }]
+
+        results.write(
+            [self.dist_weights, self.distortion],
+            names=['WDM', 'DM'],
+            comment=['Sum of weights', 'Distortion matrix'],
+            header=header,
+            extname='COR'
+        )
+
+        results.write(
+            [self.dist_rp, self.dist_rt, self.dist_z],
+            names=['RP', 'RT', 'Z'],
+            comment=['R-parallel', 'R-transverse', 'Redshift'],
+            units=['h^-1 Mpc', 'h^-1 Mpc', ''],
             extname='DMATRIX'
         )
         results.close()

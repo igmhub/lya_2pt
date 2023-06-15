@@ -16,7 +16,8 @@ class Output:
     def __init__(self, config):
         self.config = parse_config(config, defaults, accepted_options)
         self.name = self.config.get('name')
-        self.output_directory = find_path(self.config.get('output-directory'))
+        self.output_directory = find_path(self.config.get('output-directory'), enforce=False)
+        check_dir(self.output_directory)
         self.blinding = None
         self.healpix_dir = self.output_directory / f'healpix_files_{self.name}'
         check_dir(self.healpix_dir)
