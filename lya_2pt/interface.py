@@ -115,8 +115,11 @@ class Interface:
         if files is None:
             files = self.files
 
-        with Pool(processes=self.num_cpu) as pool:
-            results = pool.map(self.read_tracer1, files)
+        if self.num_cpu > 1:
+            with Pool(processes=self.num_cpu) as pool:
+                results = pool.map(self.read_tracer1, files)
+        else:
+            results = [self.read_tracer1(file) for file in files]
 
         forest_readers = {}
         healpix_neighbours = []

@@ -73,8 +73,11 @@ class Export:
         self.delta_r_par = (self.r_par_max - self.r_par_min) / self.num_bins_r_par
         self.delta_r_trans = self.r_trans_max / self.num_bins_r_trans
 
-        with Pool(processes=self.num_cpu) as pool:
-            results = pool.map(self._read_correlation, files)
+        if self.num_cpu > 1:
+            with Pool(processes=self.num_cpu) as pool:
+                results = pool.map(self._read_correlation, files)
+        else:
+            results = [self._read_correlation(file) for file in files]
 
         results = np.array(results)
         self.correlations = results[:, 0, :]
@@ -116,8 +119,11 @@ class Export:
             self.dist_rp_size = header['NUM_BINS_R_PAR']
             self.dist_rt_size = header['NUM_BINS_R_TRANS']
 
-        with Pool(processes=self.num_cpu) as pool:
-            results = pool.map(self._read_distortion, files)
+        if self.num_cpu > 1:
+            with Pool(processes=self.num_cpu) as pool:
+                results = pool.map(self._read_distortion, files)
+        else:
+            results = [self._read_distortion(file) for file in files]
 
         results = list(results)
         self.distortion = np.array([item[0] for item in results]).sum(axis=0)
