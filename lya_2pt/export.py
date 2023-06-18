@@ -9,8 +9,8 @@ accepted_options = [
 ]
 
 defaults = {
-    "export-correlation": True,
-    "export-distortion": True,
+    "export-correlation": False,
+    "export-distortion": False,
     "smooth-covariance": True,
 }
 

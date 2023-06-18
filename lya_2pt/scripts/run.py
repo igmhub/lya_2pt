@@ -8,7 +8,7 @@ from lya_2pt.interface import Interface
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     description=('Compute auto-correlation function'))
+                                     description=('run lya-2pt'))
 
     parser.add_argument('-i', '--config', type=str, default=None,
                         help=('Path to config file'))

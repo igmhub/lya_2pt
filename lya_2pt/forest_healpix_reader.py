@@ -13,7 +13,7 @@ accepted_options = [
 ]
 
 defaults = {
-    "tracer-type": 'continuous',
+    "tracer-type": "continuous",
     "absorption-line": "LYA",
     "project-deltas": True,
     "rebin": 1,

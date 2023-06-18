@@ -93,7 +93,7 @@ class Interface:
 
         # check if we are working with an auto-correlation
         self.auto_flag = "tracer2" not in config
-        self.need_distortion = self.config['compute'].getboolean('compute-distortion-matrix')
+        self.need_distortion = self.config['compute'].getboolean('compute-distortion-matrix', False)
 
         # Find files
         input_directory = find_path(config["tracer1"].get("input-dir"))
@@ -190,7 +190,7 @@ class Interface:
             healpix_ids = list(self.tracers1.keys())
 
         self.xi_output = {}
-        if self.config['compute'].getboolean('compute-correlation'):
+        if self.config['compute'].getboolean('compute-correlation', False):
             if self.num_cpu > 1:
                 arguments = [(tracers1, self.tracers2, self.settings, self.auto_flag)
                              for tracers1 in self.tracers1.values()]
@@ -206,7 +206,7 @@ class Interface:
                         tracers1, self.tracers2, self.settings, self.auto_flag)
 
         self.dmat_output = {}
-        if self.config['compute'].getboolean('compute-distortion-matrix'):
+        if self.config['compute'].getboolean('compute-distortion-matrix', False):
             if self.num_cpu > 1:
                 arguments = [(tracers1, self.tracers2, self.settings)
                              for tracers1 in self.tracers1.values()]
@@ -224,11 +224,11 @@ class Interface:
         # TODO: add other computations
 
     def write_results(self):
-        if self.config['compute'].getboolean('compute-correlation'):
+        if self.config['compute'].getboolean('compute-correlation', False):
             for healpix_id, result in self.xi_output.items():
                 self.output.write_cf_healpix(result, healpix_id, self.config, self.settings)
 
-        if self.config['compute'].getboolean('compute-distortion-matrix'):
+        if self.config['compute'].getboolean('compute-distortion-matrix', False):
             for healpix_id, result in self.dmat_output.items():
                 self.output.write_dmat_healpix(result, healpix_id, self.config, self.settings)
 
