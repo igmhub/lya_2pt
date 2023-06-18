@@ -47,5 +47,10 @@ For running the MPI parralelized version at NERSC, use:
 srun lya-2pt-mpi -i path/to/config.ini
 ```
 
+If you want to export the computation products separately from computing them, use:
+```
+lya-2pt-export -i path/to/config.ini
+```
+
 ## Credits
 This package is based in part on [picca](https://github.com/igmhub/picca).
