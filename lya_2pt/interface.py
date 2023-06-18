@@ -138,12 +138,16 @@ class Interface:
             healpix_neighbours = healpix_neighbours[~np.isin(healpix_neighbours,
                                                              list(forest_readers.keys()))]
             self.tracer2_reader = Tracer2Reader(
-                self.config["tracer1"], healpix_neighbours, self.cosmo, self.num_cpu)
+                self.config["tracer1"], healpix_neighbours, self.cosmo,
+                self.num_cpu, self.need_distortion
+                )
             for forest_reader in forest_readers.values():
                 self.tracer2_reader.add_tracers(forest_reader)
         else:
             self.tracer2_reader = Tracer2Reader(
-                self.config["tracer2"], healpix_neighbours, self.cosmo, self.num_cpu)
+                self.config["tracer2"], healpix_neighbours, self.cosmo,
+                self.num_cpu, self.need_distortion
+                )
 
         if len(files) > 1 and self.num_cpu > 1:
             with Pool(processes=self.num_cpu) as pool:

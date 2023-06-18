@@ -29,7 +29,7 @@ class Tracer2Reader:
     Attributes
     ----------
     """
-    def __init__(self, config, healpix_neighbours, cosmo, num_cpu):
+    def __init__(self, config, healpix_neighbours, cosmo, num_cpu, need_distortion=False):
         """Initialize class instance
 
         Arguments
@@ -50,14 +50,14 @@ class Tracer2Reader:
 
         tracer2_type = config.get('tracer-type')
         if tracer2_type == 'continuous':
-            self.read_forests(reader_config, healpix_neighbours, cosmo, num_cpu)
+            self.read_forests(reader_config, healpix_neighbours, cosmo, num_cpu, need_distortion)
         elif tracer2_type == 'discrete':
             self.read_catalogue(reader_config, healpix_neighbours)
         else:
             raise ReaderException(
                 "Unknown tracer2 type. Must be 'continuous' or 'discrete'.")
 
-    def read_forests(self, config, healpix_neighbours, cosmo, num_cpu):
+    def read_forests(self, config, healpix_neighbours, cosmo, num_cpu, need_distortion=False):
         """Read continuous tracers from healpix delta files
 
         Arguments
@@ -79,11 +79,11 @@ class Tracer2Reader:
         neighbour_files = [file for file in neighbour_files if file in files]
 
         if num_cpu > 1:
-            arguments = [(config, file, cosmo, False) for file in neighbour_files]
+            arguments = [(config, file, cosmo, False, need_distortion) for file in neighbour_files]
             with Pool(processes=num_cpu) as pool:
                 results = pool.starmap(ForestHealpixReader, arguments)
         else:
-            results = [ForestHealpixReader(config, file, cosmo, False)
+            results = [ForestHealpixReader(config, file, cosmo, False, need_distortion)
                        for file in neighbour_files]
 
         for healpix_reader in results:
