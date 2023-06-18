@@ -10,16 +10,18 @@ from scipy.constants import speed_of_light
 from lya_2pt.utils import parse_config
 
 accepted_options = [
-    "hubble", "omega_m", "omega_k", "omega_r", "use h units", "w0"
+    "use-picca-cosmo", "omega_m", "omega_r", "hubble-constant", "use-h-units",
+    "omega_k", "w0"
 ]
 
 defaults = {
-    "hubble": 67.36,
+    "use-picca-cosmo": False,
     "omega_m": 0.315,
-    "omega_k": 0.0,
     "omega_r": 7.963219132297603e-05,
+    "hubble-constant": 67.36,
+    "use-h-units": True,
+    "omega_k": 0.0,
     "w0": -1,
-    "use h units": True,
 }
 
 
@@ -30,9 +32,6 @@ class Cosmology:
     ----------
     config: configparser.SectionProxy
     Parsed options to build cosmology
-
-    cosmo: astropy.cosmology.Cosmo
-    Astropy cosmology
 
     use_hunits: bool
     If True, do the computation in h^-1Mpc. Otherwise, do it in Mpc
@@ -47,24 +46,32 @@ class Cosmology:
         """
         config = parse_config(config, defaults, accepted_options)
 
-        self.use_hunits = config.getboolean("use h units")
-        self._hubble = config.getfloat('hubble')
-        self._hubble_distance = (speed_of_light / 1000 / self._hubble)
-        self._Omega_k = config.getfloat('omega_k')
+        if config.getboolean("use-picca-cosmo"):
+            picca_cosmo = PiccaCosmo(config)
 
-        # Omega_m, Omega_r, Omega_k, w
-        self._inv_efunc_args = (config.getfloat('omega_m'), config.getfloat('omega_r'),
-                                self._Omega_k, config.getfloat('w0'))
+            # D_C, D_M
+            self.get_dist_c = picca_cosmo.get_r_comov
+            self.get_dist_m = picca_cosmo.get_dist_m
+        else:
+            self.use_h_units = config.getboolean("use-h-units")
+            self._hubble_constant = config.getfloat('hubble-constant')
+            self._hubble_distance = (speed_of_light / 1000 / self._hubble_constant)
+            self._Omega_k = config.getfloat('omega_k')
 
-        z = np.linspace(0, 10, 10000)
-        comoving_distance = self._comoving_distance(z)
-        comoving_transverse_distance = self._comoving_transverse_distance(z)
-        if self.use_hunits:
-            comoving_distance *= self._hubble / 100
-            comoving_transverse_distance *= self._hubble / 100
+            # Omega_m, Omega_r, Omega_k, w
+            self._inv_efunc_args = (config.getfloat('omega_m'), config.getfloat('omega_r'),
+                                    self._Omega_k, config.getfloat('w0'))
 
-        self.comoving_distance = interp1d(z, comoving_distance)
-        self.comoving_transverse_distance = interp1d(z, comoving_distance)
+            z = np.linspace(0, 10, 10000)
+            comoving_distance = self._comoving_distance(z)
+            comoving_transverse_distance = self._comoving_transverse_distance(z)
+            if self.use_h_units:
+                comoving_distance *= self._hubble_constant / 100
+                comoving_transverse_distance *= self._hubble_constant / 100
+
+            # D_C, D_M
+            self.get_dist_c = interp1d(z, comoving_distance)
+            self.get_dist_m = interp1d(z, comoving_transverse_distance)
 
     def _comoving_distance_scalar(self, z):
         """Compute integral of inverse efunc for a scalar input redshift
@@ -164,10 +171,10 @@ class PiccaCosmo():
             H0: float - default: 100.0
                 Hubble constant at redshift 0 (in km/s/Mpc)
         """
-        Om = config.getfloat('omega_m', 0.315)
-        Ok = config.getfloat('omega_k', 0)
-        Or = config.getfloat('omega_r', 0)
-        wl = config.getfloat('w0', -1)
+        Om = config.getfloat('omega_m')
+        Ok = config.getfloat('omega_k')
+        Or = config.getfloat('omega_r')
+        wl = config.getfloat('w0')
 
         # WARNING: This is introduced due to historical issues in how this class
         # is coded. Using H0=100 implies that we are returning the distances
@@ -207,6 +214,9 @@ class PiccaCosmo():
         elif Ok > 0.:
             dist_m = (np.sinh(H0*np.sqrt(Ok)/SPEED_LIGHT*r_comov) /
                       (H0*np.sqrt(Ok)/SPEED_LIGHT))
+        else:
+            # Should never get here
+            raise ValueError(f'Picca cosmology failure. Something went wrong with Omega_k={Ok}')
 
         self.get_hubble = interp1d(z, hubble)
         self.distance_to_redshift = interp1d(r_comov, z)
@@ -218,6 +228,3 @@ class PiccaCosmo():
         # D_V
         dist_v = np.power(z*self.get_dist_m(z)**2*self.get_dist_hubble(z), 1./3.)
         self.get_dist_v = interp1d(z, dist_v)
-
-        self.comoving_distance = self.get_r_comov
-        self.comoving_transverse_distance = self.get_dist_m

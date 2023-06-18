@@ -48,7 +48,7 @@ class Tracer2Reader:
 
         self.tracers = np.array([], dtype=Tracer)
 
-        tracer2_type = config.get('type')
+        tracer2_type = config.get('tracer-type')
         if tracer2_type == 'continuous':
             self.read_forests(reader_config, healpix_neighbours, cosmo, num_cpu)
         elif tracer2_type == 'discrete':
@@ -71,7 +71,7 @@ class Tracer2Reader:
         cosmo: Cosmology
         Fiducial cosmology used to go from angles and redshift to distances
         """
-        input_directory = find_path(config.get('input directory'))
+        input_directory = find_path(config.get('input-dir'))
         files = np.array(list(input_directory.glob('*fits*')))
 
         neighbour_files = [input_directory / f'delta-{healpix_id}.fits.gz'

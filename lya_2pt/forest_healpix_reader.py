@@ -8,19 +8,17 @@ from lya_2pt.utils import parse_config
 from lya_2pt.read_io import read_from_image, read_from_hdu
 
 accepted_options = [
-    "input directory", "type", "absorption line",
-    "project deltas", "order", "rebin",
-    "redshift evolution", "reference redshift"
+    "input-dir", "tracer-type", "absorption-line",
+    "project-deltas", "rebin", "redshift-evolution", "reference-redshift"
 ]
 
 defaults = {
-    "type": 'continuous',
-    "absorption line": "LYA",
-    "project deltas": True,
-    "redshift evolution": 2.9,
-    "reference redshift": 2.25,
-    "order": 1,
-    "rebin": 1
+    "tracer-type": 'continuous',
+    "absorption-line": "LYA",
+    "project-deltas": True,
+    "rebin": 1,
+    "redshift-evolution": 2.9,
+    "reference-redshift": 2.25,
 }
 
 
@@ -52,7 +50,7 @@ class ForestHealpixReader:
     tracers: array of Tracer
     The set of tracers for this healpix
     """
-    def __init__(self, config, file, cosmo, auto_flag=False):
+    def __init__(self, config, file, cosmo, auto_flag=False, need_distortion=False):
         """Initialize class instance
 
         Arguments
@@ -76,8 +74,8 @@ class ForestHealpixReader:
         self.healpix_id = int(file.name.split("delta-")[-1].split(".fits")[0])
 
         # extract parameters from config
-        absorption_line = reader_config.get("absorption line")
-        tracer1_type = config.get('type')
+        absorption_line = reader_config.get("absorption-line")
+        tracer1_type = config.get('tracer-type')
         if tracer1_type != 'continuous':
             raise ReaderException(
                 f"Tracer type must be 'continuous'. Found: '{tracer1_type}'")
@@ -89,14 +87,15 @@ class ForestHealpixReader:
         hdul = fitsio.FITS(file)
         # image format
         if "METADATA" in hdul:
-            self.tracers, self.wave_solution, self.dwave = read_from_image(hdul, absorption_line,
-                                                                           self.healpix_id)
+            self.tracers, self.wave_solution, self.dwave = read_from_image(
+                hdul, absorption_line, self.healpix_id, need_distortion)
             self.blinding = hdul["METADATA"].read_header()["BLINDING"]
         # HDU per forest
         else:
-            self.tracers, self.wave_solution, self.dwave = read_from_hdu(hdul, absorption_line,
-                                                                         self.healpix_id)
+            self.tracers, self.wave_solution, self.dwave = read_from_hdu(
+                hdul, absorption_line, self.healpix_id, need_distortion)
             self.blinding = hdul[1].read_header()["BLINDING"]
+
         if self.blinding not in ACCEPTED_BLINDING_STRATEGIES:
             raise ReaderException(
                 "Expected blinding strategy fo be one of: " +
@@ -105,10 +104,10 @@ class ForestHealpixReader:
             )
 
         # Apply redshift evolution correction
-        ref_redshift = reader_config.getfloat("reference redshift")
-        redshift_evol = reader_config.getfloat("redshift evolution")
+        reference_z = reader_config.getfloat("reference-redshift")
+        redshift_evol = reader_config.getfloat("redshift-evolution")
         for tracer in self.tracers:
-            tracer.weights *= ((1 + tracer.z) / (1 + ref_redshift))**(redshift_evol - 1)
+            tracer.weights *= ((1 + tracer.z) / (1 + reference_z))**(redshift_evol - 1)
 
         # rebin
         rebin_factor = reader_config.getint("rebin")
@@ -117,9 +116,9 @@ class ForestHealpixReader:
                 tracer.rebin(rebin_factor, self.dwave, absorption_line)
 
         # project
-        if reader_config.getboolean("project deltas"):
+        if reader_config.getboolean("project-deltas"):
             for tracer in self.tracers:
-                tracer.project(reader_config.getint("order"))
+                tracer.project()
 
         # add distances
         for tracer in self.tracers:

@@ -5,6 +5,26 @@ from lya_2pt.compute_utils import get_num_pairs, get_bin
 
 
 def compute_dmat(tracers1, tracers2, config, auto_flag=False):
+    """Compute distortion matrix
+
+    Parameters
+    ----------
+    tracers1 : array of lya_2pt.tracer.Tracer
+        First set of tracers
+    tracers2 : array of lya_2pt.tracer.Tracer
+        Second set of tracers
+    config : ConfigParser
+        Internal configuration object containing the settings section
+    auto_flag : bool, optional
+        Flag for auto-correlation, by default False
+
+    Returns
+    -------
+    (array, array, array, array, array, array, array, array)
+        distortion matrix, weight matrix, line-of-sight separation grid,
+        transverse separation grid, redshift grid, sum of weights in each bin,
+        total number of pairs per bin, number of pairs used per bin
+    """
     rejection_fraction = config.getfloat('rejection_fraction')
     rp_min = config.getfloat('rp_min')
     rp_max = config.getfloat('rp_max')
@@ -50,38 +70,38 @@ def compute_dmat(tracers1, tracers2, config, auto_flag=False):
             weights_grid, num_pairs, num_pairs_used)
 
 
+# TODO This function could benefit from being jitted if we moved the distortion write line outside
 # @njit
 def compute_dmat_pair(
         weights1, z1, distances1, order1, sum_weights1, logwave_term1, term3_norm1,
         weights2, z2, distances2, order2, sum_weights2, logwave_term2, term3_norm2, angle,
         auto_flag, rp_min, rp_max, rt_max, rp_size, rt_size, rp_size_model, rt_size_model,
-        distortion, weights_dmat, rp_grid, rt_grid, z_grid, weights_grid):
-
+        distortion, weights_dmat, rp_grid, rt_grid, z_grid, weights_grid
+):
     sin_angle = np.sin(angle / 2)
     cos_angle = np.cos(angle / 2)
 
-    num_pairs = get_num_pairs(distances1, distances2, sin_angle, cos_angle,
-                              rp_min, rp_max, rt_max, auto_flag)
+    num_pairs = get_num_pairs(
+        distances1, distances2, sin_angle, cos_angle, rp_min, rp_max, rt_max, auto_flag)
 
-    pixel_pairs, rp_rt_pairs = get_pixel_pairs(distances1, distances2, sin_angle,
-                                               cos_angle, rp_min, rp_max, rt_max, rp_size, rt_size,
-                                               rp_size_model, rt_size_model, num_pairs)
+    pixel_pairs, rp_rt_pairs = get_pixel_pairs(
+        distances1, distances2, sin_angle, cos_angle, rp_min, rp_max, rt_max,
+        rp_size, rt_size, rp_size_model, rt_size_model, num_pairs
+        )
 
     unique_model_bins = np.sort(np.unique(pixel_pairs[:, 2]))
     unique_data_bins = np.sort(np.unique(pixel_pairs[:, 3]))
     get_indeces(pixel_pairs, unique_model_bins, unique_data_bins)
 
-    etas, pixel_pairs_weights = get_etas(weights1, z1, order1, sum_weights1,
-                                         logwave_term1, term3_norm1,
-                                         weights2, z2, order2, sum_weights2,
-                                         logwave_term2, term3_norm2,
-                                         unique_model_bins, pixel_pairs, rp_rt_pairs,
-                                         rp_grid, rt_grid, z_grid,)
+    etas, pixel_pairs_weights = get_etas(
+        weights1, z1, order1, sum_weights1, logwave_term1, term3_norm1,
+        weights2, z2, order2, sum_weights2, logwave_term2, term3_norm2,
+        unique_model_bins, pixel_pairs, rp_rt_pairs, rp_grid, rt_grid, z_grid
+        )
 
-    pair_dmat, pair_wdmat, pair_weights_eff = get_pair_dmat(pixel_pairs, pixel_pairs_weights,
-                                                            logwave_term1, logwave_term2,
-                                                            unique_model_bins, unique_data_bins,
-                                                            *etas)
+    pair_dmat, pair_wdmat, pair_weights_eff = get_pair_dmat(
+        pixel_pairs, pixel_pairs_weights, logwave_term1, logwave_term2,
+        unique_model_bins, unique_data_bins, *etas)
 
     distortion[unique_data_bins, unique_model_bins[:, None]] += pair_dmat
     weights_dmat[unique_data_bins] += pair_wdmat
@@ -89,8 +109,10 @@ def compute_dmat_pair(
 
 
 @njit
-def get_pixel_pairs(distances1, distances2, sin_angle, cos_angle, rp_min, rp_max,
-                    rt_max, rp_size, rt_size, rp_size_model, rt_size_model, num_pairs):
+def get_pixel_pairs(
+    distances1, distances2, sin_angle, cos_angle, rp_min, rp_max,
+    rt_max, rp_size, rt_size, rp_size_model, rt_size_model, num_pairs
+):
     rp_rt_pairs = np.zeros((num_pairs, 2))
     pixel_pairs = np.zeros((num_pairs, 4), dtype=np.int32)
 
@@ -124,22 +146,26 @@ def get_indeces(pixel_pairs, unique_model_bins, unique_data_bins):
 
 
 @njit
-def get_etas(weights1, z1, order1, sum_weights1, logwave_minus_mean1, term3_norm1,
-             weights2, z2, order2, sum_weights2, logwave_minus_mean2, term3_norm2,
-             unique_model_bins, pixel_pairs, rp_rt_pairs, rp_grid, rt_grid, z_grid):
+def get_etas(
+    weights1, z1, order1, sum_weights1, logwave_minus_mean1, term3_norm1,
+    weights2, z2, order2, sum_weights2, logwave_minus_mean2, term3_norm2,
+    unique_model_bins, pixel_pairs, rp_rt_pairs, rp_grid, rt_grid, z_grid
+):
     num_model_bins = unique_model_bins.size
     pair_rp_eff = np.zeros(num_model_bins)
     pair_rt_eff = np.zeros(num_model_bins)
     pair_z_eff = np.zeros(num_model_bins)
 
-    eta1 = np.zeros((weights1.size, num_model_bins))
-    eta2 = np.zeros((weights2.size, num_model_bins))
-    eta3 = np.zeros((weights1.size, num_model_bins))
-    eta4 = np.zeros((weights2.size, num_model_bins))
-    eta5 = np.zeros(num_model_bins)
-    eta6 = np.zeros(num_model_bins)
-    eta7 = np.zeros(num_model_bins)
-    eta8 = np.zeros(num_model_bins)
+    # Projection matrix has 3 terms, therefore distortion matrix has 3^2 terms
+    # The first term (eta0) is trivial and thus only added at the end
+    eta1 = np.zeros((weights1.size, num_model_bins))  # term 1 x term 2
+    eta2 = np.zeros((weights2.size, num_model_bins))  # term 2 x term 1
+    eta3 = np.zeros((weights1.size, num_model_bins))  # term 1 x term 3
+    eta4 = np.zeros((weights2.size, num_model_bins))  # term 3 x term 1
+    eta5 = np.zeros(num_model_bins)  # term 2 x term 2
+    eta6 = np.zeros(num_model_bins)  # term 2 x term 3
+    eta7 = np.zeros(num_model_bins)  # term 3 x term 2
+    eta8 = np.zeros(num_model_bins)  # term 3 x term 3
     pixel_pairs_weights = np.zeros(pixel_pairs.shape[0])
 
     for (k, (i, j, mbin, _)) in enumerate(pixel_pairs):
@@ -178,9 +204,10 @@ def get_etas(weights1, z1, order1, sum_weights1, logwave_minus_mean1, term3_norm
 
 
 @njit
-def write_etas(num_model_bins, weight12, log_wave_term1, log_wave_term2,
-               eta1_view, eta2_view, eta3_view, eta4_view,
-               eta5, eta6, eta7, eta8, dmat_view):
+def write_etas(
+    num_model_bins, weight12, log_wave_term1, log_wave_term2,
+    eta1_view, eta2_view, eta3_view, eta4_view, eta5, eta6, eta7, eta8, dmat_view
+):
     for i in range(num_model_bins):
         dmat_view[i] += weight12 * (
             eta1_view[i]
@@ -195,10 +222,10 @@ def write_etas(num_model_bins, weight12, log_wave_term1, log_wave_term2,
 
 
 @njit
-def get_pair_dmat(pixel_pairs, pixel_pairs_weights,
-                  logwave_minus_mean1, logwave_minus_mean2,
-                  unique_model_bins, unique_data_bins,
-                  eta1, eta2, eta3, eta4, eta5, eta6, eta7, eta8):
+def get_pair_dmat(
+    pixel_pairs, pixel_pairs_weights, logwave_minus_mean1, logwave_minus_mean2,
+    unique_model_bins, unique_data_bins, eta1, eta2, eta3, eta4, eta5, eta6, eta7, eta8
+):
     num_model_bins = unique_model_bins.size
     pair_dmat = np.zeros((unique_data_bins.size, num_model_bins))
     pair_wdmat = np.zeros(unique_data_bins.size)

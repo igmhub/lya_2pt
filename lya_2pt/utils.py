@@ -75,8 +75,8 @@ def compute_ang_max(cosmo, rt_max, z_min, z_min2=None):
     if z_min2 is None:
         z_min2 = z_min
 
-    r_min = cosmo.comoving_transverse_distance(z_min)
-    r_min2 = cosmo.comoving_transverse_distance(z_min2)
+    r_min = cosmo.get_dist_m(z_min)
+    r_min2 = cosmo.get_dist_m(z_min2)
     r_sum = r_min + r_min2
 
     if r_sum < rt_max:

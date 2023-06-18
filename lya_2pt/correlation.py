@@ -5,6 +5,25 @@ from lya_2pt.tracer_utils import get_angle
 
 
 def compute_xi(tracers1, tracers2, config, auto_flag=False):
+    """Compute correlation function
+
+    Parameters
+    ----------
+    tracers1 : array of lya_2pt.tracer.Tracer
+        First set of tracers
+    tracers2 : array of lya_2pt.tracer.Tracer
+        Second set of tracers
+    config : ConfigParser
+        Internal configuration object containing the settings section
+    auto_flag : bool, optional
+        Flag for auto-correlation, by default False
+
+    Returns
+    -------
+    (array, array, array, array, array, array)
+        correlation function, sum of weights in each bin, line-of-sight separation grid,
+        transverse separation grid, redshift grid, number of pixel pairs in each bin
+    """
     rp_min = config.getfloat('rp_min')
     rp_max = config.getfloat('rp_max')
     rt_max = config.getfloat('rt_max')
@@ -28,14 +47,13 @@ def compute_xi(tracers1, tracers2, config, auto_flag=False):
                 )
 
             compute_xi_pair(
-                tracer1.deltas, tracer1.weights, tracer1.z,
-                tracer1.comoving_distance, tracer1.comoving_transverse_distance,
-                tracer2.deltas, tracer2.weights, tracer2.z,
-                tracer2.comoving_distance, tracer2.comoving_transverse_distance,
+                tracer1.deltas, tracer1.weights, tracer1.z, tracer1.dist_c, tracer1.dist_m,
+                tracer2.deltas, tracer2.weights, tracer2.z, tracer2.dist_c, tracer2.dist_m,
                 angle, auto_flag, rp_min, rp_max, rt_max, num_bins_rp, num_bins_rt,
                 xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid
                 )
 
+    # Normalize correlation and average coordinate grids
     w = weights_grid > 0
     xi_grid[w] /= weights_grid[w]
     rp_grid[w] /= weights_grid[w]
@@ -47,11 +65,11 @@ def compute_xi(tracers1, tracers2, config, auto_flag=False):
 
 @njit
 def compute_xi_pair(
-        deltas1, weights1, z1, dc1, dm1,
-        deltas2, weights2, z2, dc2, dm2, angle,
+        deltas1, weights1, z1, dist_c1, dist_m1,
+        deltas2, weights2, z2, dist_c2, dist_m2, angle,
         auto_flag, rp_min, rp_max, rt_max, rp_size, rt_size,
-        xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid):
-
+        xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid
+):
     sin_angle = np.sin(angle / 2)
     cos_angle = np.cos(angle / 2)
 
@@ -62,19 +80,22 @@ def compute_xi_pair(
             if weights2[j] == 0:
                 continue
 
-            # Abs is optional (only for auto)
-            rp = (dc1[i] - dc2[j]) * cos_angle
-            rt = (dm1[i] + dm2[j]) * sin_angle
+            # Comoving separation between the two pixels
+            rp = (dist_c1[i] - dist_c2[j]) * cos_angle
+            rt = (dist_m1[i] + dist_m2[j]) * sin_angle
             if auto_flag:
                 rp = np.abs(rp)
 
+            # Skip if pixel pair is too far apart
             if (rp < rp_min) or (rp >= rp_max) or (rt >= rt_max):
                 continue
 
+            # Compute bin in the correlation function to asign the pixel pair to
             bins_rp = np.floor((rp - rp_min) / (rp_max - rp_min) * rp_size)
             bins_rt = np.floor(rt / rt_max * rt_size)
             bins = int(bins_rt + rt_size * bins_rp)
 
+            # Compute and write correlation and associated quantities
             weight12 = weights1[i] * weights2[j]
             xi_grid[bins] += deltas1[i] * deltas2[j] * weight12
             weights_grid[bins] += weight12

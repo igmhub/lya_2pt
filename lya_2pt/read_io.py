@@ -5,7 +5,7 @@ from lya_2pt.errors import ReaderException
 from lya_2pt.tracer import Tracer
 
 
-def read_from_image(hdul, absorption_line, healpix_id):
+def read_from_image(hdul, absorption_line, healpix_id, need_distortion=False):
     """Read data with image format
 
     Arguments
@@ -59,13 +59,15 @@ def read_from_image(hdul, absorption_line, healpix_id):
     tracers = np.empty(los_id_array.shape, dtype=Tracer)
     for i, (los_id, ra, dec) in enumerate(zip(los_id_array, ra_array, dec_array)):
         mask = ~np.isnan(deltas_array[i])
-        tracers[i] = Tracer(healpix_id, los_id, ra, dec, order, deltas_array[i][mask],
-                            weights_array[i][mask], log_lambda[mask], z[mask])
+        tracers[i] = Tracer(
+            healpix_id, los_id, ra, dec, order, deltas_array[i][mask],
+            weights_array[i][mask], log_lambda[mask], z[mask], need_distortion
+            )
 
     return tracers, wave_solution, dwave
 
 
-def read_from_hdu(hdul, absorption_line, healpix_id):
+def read_from_hdu(hdul, absorption_line, healpix_id, need_distortion=False):
     """Read data with an HDU per forest
 
     Arguments
@@ -120,6 +122,7 @@ def read_from_hdu(hdul, absorption_line, healpix_id):
             raise ReaderException(
                 "Did not find LOGLAM or LAMBDA in delta file")
 
-        tracers.append(Tracer(healpix_id, los_id, ra, dec, order, delta, weights, log_lambda, z))
+        tracers.append(Tracer(
+            healpix_id, los_id, ra, dec, order, delta, weights, log_lambda, z, need_distortion))
 
     return np.array(tracers), wave_solution, dwave
