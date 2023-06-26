@@ -107,7 +107,7 @@ class ForestHealpixReader:
         reference_z = reader_config.getfloat("reference-redshift")
         redshift_evol = reader_config.getfloat("redshift-evolution")
         for tracer in self.tracers:
-            tracer.weights *= ((1 + tracer.z) / (1 + reference_z))**(redshift_evol - 1)
+            tracer.apply_z_evol_to_weights(redshift_evol, reference_z)
 
         # rebin
         rebin_factor = reader_config.getint("rebin")

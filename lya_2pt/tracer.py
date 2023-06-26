@@ -115,20 +115,22 @@ class Tracer:
         self.y_cart = np.sin(ra) * np.cos(dec)
         self.z_cart = np.sin(dec)
 
-        self.deltas = deltas
-        self.weights = weights
-        self.log_lambda = log_lambda
-        self.z = z
+        self.deltas = deltas.copy()
+        self.weights = weights.copy()
+        self.log_lambda = log_lambda.copy()
+        self.z = z.copy()
 
         # Needed for distortion matrix computation
         self.need_distortion = need_distortion
-        self.sum_weight = None
-        self.logwave_term = None
-        self.term3_norm = None
+
         if self.need_distortion:
             self.sum_weights = np.sum(weights)
             self.logwave_term = log_lambda - np.sum(log_lambda * weights) / self.sum_weights
             self.term3_norm = (weights * self.logwave_term**2).sum()
+        else:
+            self.sum_weights = None
+            self.logwave_term = None
+            self.term3_norm = None
 
         self.dist_c = None
         self.dist_m = None
@@ -148,7 +150,7 @@ class Tracer:
             It should be filled with True for the neighbouring lines of sight and
             False otherwise.
         """
-        self.neighbours = neighbours
+        self.neighbours = neighbours.copy()
         self.num_neighbours = np.sum(neighbours)
 
     def compute_comoving_distances(self, cosmo):
@@ -262,3 +264,7 @@ class Tracer:
         assert not self.is_projected, "Tracer already projected"
         self.deltas = project_deltas(self.log_lambda, self.deltas, self.weights, self.order)
         self.is_projected = True
+
+    def apply_z_evol_to_weights(self, redshift_evol, reference_z):
+        self.weights *= ((1 + self.z) / (1 + reference_z))**(redshift_evol - 1)
+        self.sum_weights = np.sum(self.weights)
