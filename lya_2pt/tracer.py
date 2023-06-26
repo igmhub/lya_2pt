@@ -267,4 +267,9 @@ class Tracer:
 
     def apply_z_evol_to_weights(self, redshift_evol, reference_z):
         self.weights *= ((1 + self.z) / (1 + reference_z))**(redshift_evol - 1)
-        self.sum_weights = np.sum(self.weights)
+
+        if self.need_distortion:
+            self.sum_weights = np.sum(self.weights)
+            self.logwave_term = self.log_lambda - (np.sum(self.log_lambda * self.weights)
+                                                   / self.sum_weights)
+            self.term3_norm = (self.weights * self.logwave_term**2).sum()
