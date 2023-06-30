@@ -2,7 +2,7 @@
 import numpy as np
 
 from lya_2pt.constants import ABSORBER_IGM
-from lya_2pt.tracer_utils import rebin, project_deltas, get_angle
+from lya_2pt.tracer_utils import rebin, project_deltas, get_angle, get_projection_matrix
 from lya_2pt.compute_utils import compute_rp, compute_rt
 
 
@@ -259,10 +259,16 @@ class Tracer:
             self.logwave_term = log_lambda - np.sum(log_lambda * weights) / self.sum_weights
             self.term3_norm = (weights * self.logwave_term**2).sum()
 
-    def project(self):
+    def project(self, old_projection=True):
         """Apply projection matrix to deltas"""
         assert not self.is_projected, "Tracer already projected"
-        self.deltas = project_deltas(self.log_lambda, self.deltas, self.weights, self.order)
+        if old_projection:
+            self.deltas = project_deltas(self.log_lambda, self.deltas, self.weights, self.order)
+        else:
+            self.proj_vec_mat, projection = get_projection_matrix(
+                self.log_lambda, self.weights, self.order)
+
+            self.deltas = projection @ self.deltas
         self.is_projected = True
 
     def apply_z_evol_to_weights(self, redshift_evol, reference_z):

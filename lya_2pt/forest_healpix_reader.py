@@ -8,14 +8,17 @@ from lya_2pt.utils import parse_config
 from lya_2pt.read_io import read_from_image, read_from_hdu
 
 accepted_options = [
-    "input-dir", "tracer-type", "absorption-line",
-    "project-deltas", "rebin", "redshift-evolution", "reference-redshift"
+    "input-dir", "tracer-type", "absorption-line", "project-deltas",
+    "projection-order", "use-old-projection", "rebin",
+    "redshift-evolution", "reference-redshift"
 ]
 
 defaults = {
     "tracer-type": "continuous",
     "absorption-line": "LYA",
     "project-deltas": True,
+    "projection-order": 1,
+    "use-old-projection": True,
     "rebin": 1,
     "redshift-evolution": 2.9,
     "reference-redshift": 2.25,
@@ -88,12 +91,14 @@ class ForestHealpixReader:
         # image format
         if "METADATA" in hdul:
             self.tracers, self.wave_solution, self.dwave = read_from_image(
-                hdul, absorption_line, self.healpix_id, need_distortion)
+                hdul, absorption_line, self.healpix_id, need_distortion,
+                reader_config.get("projection-order"))
             self.blinding = hdul["METADATA"].read_header()["BLINDING"]
         # HDU per forest
         else:
             self.tracers, self.wave_solution, self.dwave = read_from_hdu(
-                hdul, absorption_line, self.healpix_id, need_distortion)
+                hdul, absorption_line, self.healpix_id, need_distortion,
+                reader_config.get("projection-order"))
             self.blinding = hdul[1].read_header()["BLINDING"]
 
         if self.blinding not in ACCEPTED_BLINDING_STRATEGIES:
@@ -118,7 +123,7 @@ class ForestHealpixReader:
         # project
         if reader_config.getboolean("project-deltas"):
             for tracer in self.tracers:
-                tracer.project()
+                tracer.project(reader_config.getboolean("use-old-projection"))
 
         # add distances
         for tracer in self.tracers:

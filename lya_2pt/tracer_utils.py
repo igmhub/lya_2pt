@@ -151,3 +151,13 @@ def project_deltas(log_lambda, deltas, weights, order):
         projected_deltas -= mean_delta_log_lambda * meanless_log_lambda
 
     return projected_deltas
+
+
+@njit()
+def get_projection_matrix(log_lambda, weights, order):
+    input_vectors_matrix = np.ones((order + 1, weights.size)) * weights
+    for i in range(1, order + 1):
+        input_vectors_matrix[i] *= log_lambda**i
+
+    _, __, Vh = np.linalg.svd(input_vectors_matrix, full_matrices=False)
+    return Vh, np.eye(weights.size) - Vh.T @ Vh
