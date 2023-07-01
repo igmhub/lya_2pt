@@ -160,4 +160,4 @@ def get_projection_matrix(log_lambda, weights, order):
         input_vectors_matrix[i] *= log_lambda**i
 
     _, __, Vh = np.linalg.svd(input_vectors_matrix, full_matrices=False)
-    return Vh, np.eye(weights.size) - Vh.T @ Vh
+    return Vh.T, np.eye(weights.size) - Vh.T @ Vh

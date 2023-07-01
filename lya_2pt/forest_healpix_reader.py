@@ -92,13 +92,13 @@ class ForestHealpixReader:
         if "METADATA" in hdul:
             self.tracers, self.wave_solution, self.dwave = read_from_image(
                 hdul, absorption_line, self.healpix_id, need_distortion,
-                reader_config.get("projection-order"))
+                reader_config.getint("projection-order"))
             self.blinding = hdul["METADATA"].read_header()["BLINDING"]
         # HDU per forest
         else:
             self.tracers, self.wave_solution, self.dwave = read_from_hdu(
                 hdul, absorption_line, self.healpix_id, need_distortion,
-                reader_config.get("projection-order"))
+                reader_config.getint("projection-order"))
             self.blinding = hdul[1].read_header()["BLINDING"]
 
         if self.blinding not in ACCEPTED_BLINDING_STRATEGIES:
