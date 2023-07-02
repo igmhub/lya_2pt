@@ -122,22 +122,25 @@ class Interface:
         else:
             results = [self.read_tracer1(file) for file in files]
 
-        forest_readers = {}
-        healpix_neighbours = []
-        for res in results:
-            hp_id = res[0].healpix_id
-            forest_readers[hp_id] = res[0]
-            healpix_neighbours.append(res[1])
+        if self.output.blinding is None:
+            self.output.blinding = results[0].blinding
+        else:
+            assert self.output.blinding == results[0].blinding
 
-            if self.output.blinding is None:
-                self.output.blinding = res[0].blinding
-            else:
-                assert self.output.blinding == res[0].blinding
+        forest_readers = {reader.healpix_id: reader for reader in results}
+        del results
 
-        healpix_neighbours = np.unique(np.hstack(healpix_neighbours))
+        self.healpix_neighbours = {}
+        for reader in forest_readers.values():
+           self.healpix_neighbours[reader.healpix_id] = reader.find_healpix_neighbours(
+               self.nside, self.ang_max)
+
+
+        unique_healpix_neighbours = np.unique(np.hstack([
+            neigh for neigh in self.healpix_neighbours.values()]))
 
         if self.auto_flag:
-            healpix_neighbours = healpix_neighbours[~np.isin(healpix_neighbours,
+            healpix_neighbours = unique_healpix_neighbours[~np.isin(unique_healpix_neighbours,
                                                              list(forest_readers.keys()))]
             self.tracer2_reader = Tracer2Reader(
                 self.config["tracer1"], healpix_neighbours, self.cosmo,
@@ -147,36 +150,45 @@ class Interface:
                 self.tracer2_reader.add_tracers(forest_reader)
         else:
             self.tracer2_reader = Tracer2Reader(
-                self.config["tracer2"], healpix_neighbours, self.cosmo,
+                self.config["tracer2"], unique_healpix_neighbours, self.cosmo,
                 self.num_cpu, self.need_distortion
                 )
-
-        if len(files) > 1 and self.num_cpu > 1:
-            with Pool(processes=self.num_cpu) as pool:
-                results = list(tqdm.tqdm(pool.imap(self.find_neighbours, forest_readers.values()),
-                                         total=len(forest_readers)))
-
-            for res in results:
-                forest_readers[res.healpix_id] = res
-        else:
-            for hp_id, forest_reader in forest_readers.items():
-                forest_readers[hp_id] = self.find_neighbours(forest_reader)
 
         self.tracers1 = {hp_id: forest_reader.tracers
                          for hp_id, forest_reader in forest_readers.items()}
         self.tracers2 = self.tracer2_reader.tracers
+        self.healpix_ids = np.array(list(self.tracers1.keys()))
+
+        if len(files) > 1 and self.num_cpu > 1:
+            with Pool(processes=self.num_cpu) as pool:
+                _ = tqdm.tqdm(pool.imap(self.find_neighbours, self.healpix_ids),
+                              total=len(self.healpix_ids))
+        else:
+            for healpix_id in self.healpix_ids:
+                self.find_neighbours(healpix_id)
 
     def read_tracer1(self, file):
         forest_reader = ForestHealpixReader(
             self.config["tracer1"], file, self.cosmo, self.auto_flag, self.need_distortion)
-        healpix_neighbours = forest_reader.find_healpix_neighbours(self.nside, self.ang_max)
 
-        return forest_reader, healpix_neighbours
-
-    def find_neighbours(self, forest_reader):
-        forest_reader.find_neighbours(
-            self.tracer2_reader, self.z_min, self.z_max, self.rp_max, self.rt_max)
         return forest_reader
+
+    def find_neighbours(self, healpix_id):
+        # forest_reader.find_neighbours(
+        #     self.tracer2_reader, self.z_min, self.z_max, self.rp_max, self.rt_max)
+        # return forest_reader
+        hp_neighs = [other_hp for other_hp in self.healpix_neighbours[healpix_id]
+                     if other_hp in self.tracers2]
+        hp_neighs += [healpix_id]
+
+        for tracer1 in self.tracers1[healpix_id]:
+            neighbours = [tracer2 for hp in hp_neighs for tracer2 in self.tracers2[hp]]
+
+            if self.auto_flag:
+                neighbours = [tracer2 for tracer2 in neighbours if tracer1.ra > tracer2.ra]
+
+            tracer1.add_neighbours(
+                neighbours, self.auto_flag, self.z_min, self.z_max, self.rp_max, self.rt_max)
 
     def run(self, healpix_ids=None):
         """Run the computation

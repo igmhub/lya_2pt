@@ -46,7 +46,7 @@ class Tracer2Reader:
         # parse configuration
         reader_config = parse_config(config, defaults, accepted_options)
 
-        self.tracers = np.array([], dtype=Tracer)
+        self.tracers = {}
 
         tracer2_type = config.get('tracer-type')
         if tracer2_type == 'continuous':
@@ -107,4 +107,4 @@ class Tracer2Reader:
         healpix_reader : ForestHealpixReader
         ForestHealpixReader instance with read tracers
         """
-        self.tracers = np.concatenate((self.tracers, healpix_reader.tracers))
+        self.tracers[healpix_reader.healpix_id] = healpix_reader.tracers

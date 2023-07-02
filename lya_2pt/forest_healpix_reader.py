@@ -165,38 +165,38 @@ class ForestHealpixReader:
 
         return neighbour_ids
 
-    def find_neighbours(self, other, z_min, z_max, rp_max, rt_max):
-        """For each tracer, find neighbouring tracers. Keep the results in
-        tracer.neighbours
+    # def find_neighbours(self, other, z_min, z_max, rp_max, rt_max):
+    #     """For each tracer, find neighbouring tracers. Keep the results in
+    #     tracer.neighbours
 
-        Arguments
-        ---------
-        other: Tracer2Reader
-        Other tracers
+    #     Arguments
+    #     ---------
+    #     other: Tracer2Reader
+    #     Other tracers
 
-        z_min: float
-        Minimum redshift of the tracers
+    #     z_min: float
+    #     Minimum redshift of the tracers
 
-        z_max: float
-        Maximum redshfit of the tracers
+    #     z_max: float
+    #     Maximum redshfit of the tracers
 
-        Raise
-        -----
-        ReaderException if the self.tracers is None
-        ReaderException if the other.tracers is None
-        """
-        if self.tracers is None:
-            raise ReaderException(
-                "In ForestHealpixReader, self.tracer should not be None")
-        if other.tracers is None:
-            raise ReaderException(
-                "In ForestHealpixReader, other.tracer should not be None")
+    #     Raise
+    #     -----
+    #     ReaderException if the self.tracers is None
+    #     ReaderException if the other.tracers is None
+    #     """
+    #     if self.tracers is None:
+    #         raise ReaderException(
+    #             "In ForestHealpixReader, self.tracer should not be None")
+    #     if other.tracers is None:
+    #         raise ReaderException(
+    #             "In ForestHealpixReader, other.tracer should not be None")
 
-        for tracer1 in self.tracers:
-            neighbour_mask = np.full(other.tracers.shape, False)
+    #     for tracer1 in self.tracers:
+    #         neighbour_mask = np.full(other.tracers.shape, False)
 
-            for index2, tracer2 in enumerate(other.tracers):
-                if tracer1.is_neighbour(tracer2, self.auto_flag, z_min, z_max, rp_max, rt_max):
-                    neighbour_mask[index2] = True
+    #         # for index2, tracer2 in enumerate(other.tracers):
+    #             # if tracer1.is_neighbour(tracer2, self.auto_flag, z_min, z_max, rp_max, rt_max):
+    #             #     neighbour_mask[index2] = True
 
-            tracer1.add_neighbours(neighbour_mask)
+    #         tracer1.add_neighbours(neighbour_mask)

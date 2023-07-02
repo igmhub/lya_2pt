@@ -2,8 +2,7 @@
 import numpy as np
 
 from lya_2pt.constants import ABSORBER_IGM
-from lya_2pt.tracer_utils import rebin, project_deltas, get_angle, get_projection_matrix
-from lya_2pt.compute_utils import compute_rp, compute_rt
+from lya_2pt.tracer_utils import rebin, project_deltas, get_angle_list, get_projection_matrix
 
 
 class Tracer:
@@ -140,18 +139,18 @@ class Tracer:
         self.num_neighbours = None
         self.is_projected = False
 
-    def add_neighbours(self, neighbours):
-        """Add neighbours mask
+    # def add_neighbours(self, neighbours):
+    #     """Add neighbours mask
 
-        Arguments
-        ---------
-        neighbours: array of bool
-            Array of length equal to the total number of tracers loaded.
-            It should be filled with True for the neighbouring lines of sight and
-            False otherwise.
-        """
-        self.neighbours = neighbours.copy()
-        self.num_neighbours = np.sum(neighbours)
+    #     Arguments
+    #     ---------
+    #     neighbours: array of bool
+    #         Array of length equal to the total number of tracers loaded.
+    #         It should be filled with True for the neighbouring lines of sight and
+    #         False otherwise.
+    #     """
+    #     self.neighbours = neighbours.copy()
+    #     self.num_neighbours = np.sum(neighbours)
 
     def compute_comoving_distances(self, cosmo):
         """Compute the comoving distance and the transverse comoving distance
@@ -168,7 +167,7 @@ class Tracer:
         if self.need_distortion:
             self.distances = np.c_[self.dist_c, self.dist_m]
 
-    def is_neighbour(self, other, auto_flag, z_min, z_max, rp_max, rt_max):
+    def add_neighbours(self, others, auto_flag, z_min, z_max, rp_max, rt_max):
         """Check if other tracer is a neighbour
 
         Parameters
@@ -191,48 +190,56 @@ class Tracer:
         bool
             True if the tracers are neighbours. False otherwise
         """
-        # This is to avoid double counting in the autocorrelation
-        # The equality check is purely for compatibility with picca
-        # Somehow there are a few forests with identical RA
-        if auto_flag and (self.ra <= other.ra):
-            return False
-
         # We don't correlate things in the same line of sight
         # due to continuum fitting errors
-        if other.los_id == self.los_id:
-            return False
+        others = [tracer for tracer in others if tracer.los_id != self.los_id]
 
-        # Check if they are in the same redshift bin
-        z_check = (other.z[-1] + self.z[-1]) / 2.
-        if z_check < z_min or z_check >= z_max:
-            return False
+        # # Check if they are in the same redshift bin
+        others = [tracer for tracer in others
+                  if ((tracer.z[-1] + self.z[-1]) / 2. > z_min
+                      and (tracer.z[-1] + self.z[-1]) / 2. < z_max)]
 
         # Compute angle between forests
-        angle = get_angle(self.x_cart, self.y_cart, self.z_cart, self.ra, self.dec,
-                          other.x_cart, other.y_cart, other.z_cart, other.ra, other.dec)
+        angles = get_angle_list(self, others)
 
         # Check if transverse separation is small enough
-        smallest_rt = compute_rt(self.dist_m, other.dist_m, i=0, j=0, sin_angle=np.sin(angle/2))
-        if smallest_rt > rt_max:
-            return False
+        dist_m0 = np.array([tracer.dist_m[0] for tracer in others])
+        smallest_rts = (self.dist_m[0] + dist_m0) * np.sin(angles/2)
+
+        w = smallest_rts < rt_max
+        others = np.array(others)[w]
+        angles = angles[w]
 
         # Check if line-of-sight separation is small enough
-        cos_angle = np.cos(angle/2)
-        if self.dist_c[-1] < other.dist_c[0]:
-            rp_test = compute_rp(self.dist_c, other.dist_c, i=-1, j=0, cos_angle=cos_angle,
-                                 auto_flag=auto_flag)
+        cos_angles = np.cos(angles/2)
 
-            if np.abs(rp_test) > rp_max:
-                return False
+        dist_c_start = np.array([tracer.dist_c[0] for tracer in others])
+        w1 = self.dist_c[-1] < dist_c_start
 
-        if self.dist_c[0] > other.dist_c[-1]:
-            rp_test = compute_rp(self.dist_c, other.dist_c, i=0, j=-1, cos_angle=cos_angle,
-                                 auto_flag=auto_flag)
+        rp_test1 = (self.dist_c[-1] - dist_c_start[w1]) * cos_angles[w1]
+        if auto_flag:
+            rp_test1 = np.abs(rp_test1)
 
-            if np.abs(rp_test) > rp_max:
-                return False
+        w_test1 = np.abs(rp_test1) < rp_max
+        not_w1 = ~w1
+        not_w1[w1] = w_test1
+        others = others[not_w1]
+        cos_angles = cos_angles[not_w1]
 
-        return True
+        dist_c_end = np.array([tracer.dist_c[-1] for tracer in others])
+        w2 = self.dist_c[0] > dist_c_end
+
+        rp_test2 = (self.dist_c[0] - dist_c_end[w2]) * cos_angles[w2]
+        if auto_flag:
+            rp_test2 = np.abs(rp_test2)
+
+        w_test2 = np.abs(rp_test2) < rp_max
+        not_w2 = ~w2
+        not_w2[w2] = w_test2
+        others = others[not_w2]
+
+        self.neighbours = others
+        self.num_neighbours = len(self.neighbours)
 
     def rebin(self, rebin_factor, dwave, absorption_line):
         """Rebin the forest into coarser pixels

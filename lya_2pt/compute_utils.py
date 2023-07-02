@@ -24,17 +24,17 @@ def get_bin(r, r_min, r_max, r_size):
     return np.int32(np.floor((r - r_min) / (r_max - r_min) * r_size))
 
 
-@njit
-def compute_rp(dc1, dc2, i, j, cos_angle, auto_flag):
-    if auto_flag:
-        return np.abs((dc1[i] - dc2[j]) * cos_angle)
+# @njit
+# def compute_rp(dc1, dc2, i, j, cos_angle, auto_flag):
+#     if auto_flag:
+#         return np.abs((dc1[i] - dc2[j]) * cos_angle)
 
-    return (dc1[i] - dc2[j]) * cos_angle
+#     return (dc1[i] - dc2[j]) * cos_angle
 
 
-@njit
-def compute_rt(dm1, dm2, i, j, sin_angle):
-    return (dm1[i] + dm2[j]) * sin_angle
+# @njit
+# def compute_rt(dm1, dm2, i, j, sin_angle):
+#     return (dm1[i] + dm2[j]) * sin_angle
 
 
 @njit

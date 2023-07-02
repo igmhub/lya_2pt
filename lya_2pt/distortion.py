@@ -48,11 +48,12 @@ def compute_dmat(tracers1, tracers2, config, auto_flag=False):
     num_pairs = 0
     num_pairs_used = 0
     for tracer1 in tracers1:
+        assert tracer1.neighbours is not None
         w = np.random.rand(tracer1.num_neighbours) > rejection_fraction
         num_pairs += tracer1.neighbours.size
         num_pairs_used += w.sum()
 
-        for tracer2 in tracers2[tracer1.neighbours][w]:
+        for tracer2 in tracer1.neighbours[w]:
             compute_tracer_pair_dmat(
                 tracer1, tracer2, auto_flag, get_old_distortion, rp_min, rp_max, rt_max,
                 num_bins_rp, num_bins_rt, num_bins_rp_model, num_bins_rt_model,
