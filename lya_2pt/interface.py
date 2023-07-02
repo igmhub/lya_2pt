@@ -132,15 +132,15 @@ class Interface:
 
         self.healpix_neighbours = {}
         for reader in forest_readers.values():
-           self.healpix_neighbours[reader.healpix_id] = reader.find_healpix_neighbours(
-               self.nside, self.ang_max)
+            self.healpix_neighbours[reader.healpix_id] = reader.find_healpix_neighbours(
+                self.nside, self.ang_max)
 
         unique_healpix_neighbours = np.unique(np.hstack([
             neigh for neigh in self.healpix_neighbours.values()]))
 
         if self.auto_flag:
             healpix_neighbours = unique_healpix_neighbours[~np.isin(unique_healpix_neighbours,
-                                                             list(forest_readers.keys()))]
+                                                                    list(forest_readers.keys()))]
             self.tracer2_reader = Tracer2Reader(
                 self.config["tracer1"], healpix_neighbours, self.cosmo,
                 self.num_cpu, self.need_distortion
@@ -160,19 +160,11 @@ class Interface:
             [len(tracers)for tracers in self.tracer2_reader.tracers.values()]))
         self.healpix_ids = np.array(list(self.tracers1.keys()))
 
-        # if len(files) > 1 and self.num_cpu > 1:
-        #     with Pool(processes=self.num_cpu) as pool:
-        #         pool.map(self.find_neighbours, self.healpix_ids)
-        # else:
-        #     for healpix_id in self.healpix_ids:
-        #         self.find_neighbours(healpix_id)
-
     def read_tracer1(self, file):
         forest_reader = ForestHealpixReader(
             self.config["tracer1"], file, self.cosmo, self.auto_flag, self.need_distortion)
 
         return forest_reader
-
 
     def run(self, healpix_ids=None):
         """Run the computation

@@ -65,6 +65,7 @@ def compute_xi(tracers1, config, auto_flag=False):
                 xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid
                 )
 
+        setattr(tracer1, "neighbours", None)
     # Normalize correlation and average coordinate grids
     w = weights_grid > 0
     xi_grid[w] /= weights_grid[w]
