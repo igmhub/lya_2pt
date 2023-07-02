@@ -38,6 +38,10 @@ def main():
                         help=('Radiation density parameter'))
     parser.add_argument('--no-project', action='store_true', required=False,
                         help=('Turn off projection matrix'))
+    parser.add_argument('--use-new-projection', action='store_true', required=False,
+                        help=('Use the new projection formalism'))
+    parser.add_argument('--projection-order', type=int, default=1, required=False,
+                        help=('Order of the polynomial used to build the projection'))
     parser.add_argument('--rebin-factor', type=int, default=1, required=False,
                         help=('Factor for rebinning forests into coarser lambda bins'))
     parser.add_argument('--num-cpu', type=int, default=1, required=False,
@@ -50,6 +54,8 @@ def main():
                          'tracer-type': 'continuous',
                          'absorption-line': args.absorption_line,
                          'project-deltas': str(not args.no_project),
+                         'use-old-projection': str(not args.use_new_projection),
+                         'projection-order': str(args.projection_order),
                          'rebin': str(args.rebin_factor)}
 
     config['settings'] = {'num-cpu': str(args.num_cpu),

@@ -43,8 +43,10 @@ def main():
                         help=('Radiation density parameter'))
     parser.add_argument('--rejection-fraction', type=float, default=0.99, required=False,
                         help=('Fraction of forest pairs to skip when computing the distortion'))
-    parser.add_argument('--no-project', action='store_true', required=False,
-                        help=('Turn off projection matrix'))
+    parser.add_argument('--projection-order', type=int, default=1, required=False,
+                        help=('Order of the polynomial used to build the projection'))
+    parser.add_argument('--get-new-distortion', action='store_true', required=False,
+                        help=('Compute the distortion matrix using the new formalism'))
     parser.add_argument('--rebin-factor', type=int, default=1, required=False,
                         help=('Factor for rebinning forests into coarser lambda bins'))
     parser.add_argument('--num-cpu', type=int, default=1, required=False,
@@ -56,8 +58,12 @@ def main():
     config['tracer1'] = {'input-dir': args.input_dir,
                          'tracer-type': 'continuous',
                          'absorption-line': args.absorption_line,
-                         'project-deltas': str(not args.no_project),
+                         'projection-order': str(args.projection_order),
                          'rebin': str(args.rebin_factor)}
+
+    if args.get_new_distortion:
+        config['tracer1']['project-deltas'] = 'True'
+        config['tracer1']['use-old-projection'] = 'False'
 
     config['settings'] = {'num-cpu': str(args.num_cpu),
                           'z_min': str(args.z_cut_min),
@@ -69,7 +75,8 @@ def main():
                           'num_bins_rt': str(args.num_bins_rt),
                           'num_bins_rp_model': str(args.num_bins_rp_model),
                           'num_bins_rt_model': str(args.num_bins_rt_model),
-                          'rejection_fraction': str(args.rejection_fraction)}
+                          'rejection_fraction': str(args.rejection_fraction),
+                          'get-old-distortion': str(not args.get_new_distortion)}
 
     config['cosmology'] = {'Omega_m': str(args.Omega_m),
                            'Omega_r': str(args.Omega_r)}
