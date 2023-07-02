@@ -153,7 +153,8 @@ class Interface:
 
         if len(files) > 1 and self.num_cpu > 1:
             with Pool(processes=self.num_cpu) as pool:
-                results = pool.map(self.find_neighbours, forest_readers.values())
+                results = list(tqdm.tqdm(pool.imap(self.find_neighbours, forest_readers.values()),
+                                         total=len(forest_readers)))
 
             for res in results:
                 forest_readers[res.healpix_id] = res
