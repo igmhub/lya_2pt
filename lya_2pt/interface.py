@@ -117,7 +117,7 @@ class Interface:
             files = self.files
 
         if self.num_cpu > 1:
-            with Pool(processes=self.num_cpu) as pool:
+            with multiprocessing.Pool(processes=self.num_cpu) as pool:
                 results = list(tqdm.tqdm(pool.imap(self.read_tracer1, files), total=len(files)))
         else:
             results = [self.read_tracer1(file) for file in files]
