@@ -44,6 +44,8 @@ def main():
                         help=('Order of the polynomial used to build the projection'))
     parser.add_argument('--rebin-factor', type=int, default=1, required=False,
                         help=('Factor for rebinning forests into coarser lambda bins'))
+    parser.add_argument('--no-smooth-cov', action='store_true', required=False,
+                        help=('Turn off covariance smoothing'))
     parser.add_argument('--num-cpu', type=int, default=1, required=False,
                         help=('Number of cpus when running in parallel'))
 
@@ -75,7 +77,8 @@ def main():
     config['output'] = {'name': args.name,
                         'output-dir': args.output_dir}
 
-    config['export'] = {'export-correlation': 'True'}
+    config['export'] = {'export-correlation': 'True',
+                        'smooth-covariance': str(not args.no_smooth_cov)}
 
     print('Initializing')
     lya2pt = Interface(config)

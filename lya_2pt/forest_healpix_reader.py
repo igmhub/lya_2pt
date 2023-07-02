@@ -108,17 +108,17 @@ class ForestHealpixReader:
                 f" Found: {self.blinding}"
             )
 
-        # Apply redshift evolution correction
-        reference_z = reader_config.getfloat("reference-redshift")
-        redshift_evol = reader_config.getfloat("redshift-evolution")
-        for tracer in self.tracers:
-            tracer.apply_z_evol_to_weights(redshift_evol, reference_z)
-
         # rebin
         rebin_factor = reader_config.getint("rebin")
         if rebin_factor > 1:
             for tracer in self.tracers:
                 tracer.rebin(rebin_factor, self.dwave, absorption_line)
+
+        # Apply redshift evolution correction
+        reference_z = reader_config.getfloat("reference-redshift")
+        redshift_evol = reader_config.getfloat("redshift-evolution")
+        for tracer in self.tracers:
+            tracer.apply_z_evol_to_weights(redshift_evol, reference_z)
 
         # project
         if reader_config.getboolean("project-deltas"):
