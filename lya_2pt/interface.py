@@ -186,6 +186,7 @@ class Interface:
 
             tracer1.add_neighbours(
                 neighbours, self.auto_flag, self.z_min, self.z_max, self.rp_max, self.rt_max)
+            assert tracer1.neighbours is not None
 
     def run(self, healpix_ids=None):
         """Run the computation
