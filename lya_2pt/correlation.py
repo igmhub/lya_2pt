@@ -2,6 +2,9 @@ import numpy as np
 from numba import njit
 
 from lya_2pt.tracer_utils import get_angle
+from multiprocessing import Lock, Value
+counter = Value('i', 0)
+lock = Lock()
 
 
 def compute_xi(tracers1, tracers2, config, auto_flag=False):
@@ -29,6 +32,7 @@ def compute_xi(tracers1, tracers2, config, auto_flag=False):
     rt_max = config.getfloat('rt_max')
     num_bins_rp = config.getint('num_bins_rp')
     num_bins_rt = config.getint('num_bins_rt')
+    num_data = config.getint('num_tracers')
     total_size = int(num_bins_rp * num_bins_rt)
 
     xi_grid = np.zeros(total_size)
@@ -40,6 +44,12 @@ def compute_xi(tracers1, tracers2, config, auto_flag=False):
 
     for tracer1 in tracers1:
         assert tracer1.neighbours is not None
+        with lock:
+            xicounter = round(counter.value * 100. / num_data, 2)
+            if (counter.value % 1000 == 0):
+                print(("computing xi: {}%").format(xicounter))
+            counter.value += 1
+
         for tracer2 in tracer1.neighbours:
             angle = get_angle(
                 tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra, tracer1.dec,

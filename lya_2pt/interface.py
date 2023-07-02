@@ -135,7 +135,6 @@ class Interface:
            self.healpix_neighbours[reader.healpix_id] = reader.find_healpix_neighbours(
                self.nside, self.ang_max)
 
-
         unique_healpix_neighbours = np.unique(np.hstack([
             neigh for neigh in self.healpix_neighbours.values()]))
 
@@ -157,6 +156,8 @@ class Interface:
         self.tracers1 = {hp_id: forest_reader.tracers
                          for hp_id, forest_reader in forest_readers.items()}
         self.tracers2 = self.tracer2_reader.tracers
+        self.settings['num_tracers'] = str(np.sum(
+            [len(tracers)for tracers in self.tracer2_reader.tracers.values()]))
         self.healpix_ids = np.array(list(self.tracers1.keys()))
 
         if len(files) > 1 and self.num_cpu > 1:
@@ -211,8 +212,7 @@ class Interface:
                              for tracers1 in self.tracers1.values()]
 
                 with Pool(processes=self.num_cpu) as pool:
-                    results = pool.starmap(compute_xi,
-                                           tqdm.tqdm(arguments, total=len(self.tracers1)))
+                    results = pool.starmap(compute_xi, arguments)
 
                 for hp_id, res in zip(self.tracers1.keys(), results):
                     self.xi_output[hp_id] = res
