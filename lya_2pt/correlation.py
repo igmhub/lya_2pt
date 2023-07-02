@@ -1,8 +1,9 @@
+import sys
 import numpy as np
 from numba import njit
+from multiprocessing import Lock, Value
 
 from lya_2pt.tracer_utils import get_angle
-from multiprocessing import Lock, Value
 counter = Value('i', 0)
 lock = Lock()
 
@@ -48,6 +49,7 @@ def compute_xi(tracers1, tracers2, config, auto_flag=False):
             xicounter = round(counter.value * 100. / num_data, 2)
             if (counter.value % 1000 == 0):
                 print(("computing xi: {}%").format(xicounter))
+                sys.stdout.flush()
             counter.value += 1
 
         for tracer2 in tracer1.neighbours:
