@@ -1,4 +1,4 @@
-from multiprocessing import Pool
+import multiprocessing
 
 import numpy as np
 import tqdm
@@ -183,7 +183,8 @@ class Interface:
         self.xi_output = {}
         if self.config['compute'].getboolean('compute-correlation', False):
             if self.num_cpu > 1:
-                with Pool(processes=self.num_cpu) as pool:
+                context = multiprocessing.get_context('fork')
+                with context.Pool(processes=self.num_cpu) as pool:
                     results = pool.map(self.compute_xi, self.healpix_ids)
 
                 for hp_id, res in zip(self.tracers1.keys(), results):
@@ -195,7 +196,8 @@ class Interface:
         self.dmat_output = {}
         if self.config['compute'].getboolean('compute-distortion-matrix', False):
             if self.num_cpu > 1:
-                with Pool(processes=self.num_cpu) as pool:
+                context = multiprocessing.get_context('fork')
+                with context.Pool(processes=self.num_cpu) as pool:
                     results = pool.map(self.compute_dmat, self.healpix_ids)
 
                 for hp_id, res in zip(self.tracers1.keys(), results):
