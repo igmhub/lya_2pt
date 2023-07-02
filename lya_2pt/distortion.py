@@ -1,11 +1,15 @@
+import sys
 import numpy as np
 from numba import njit
+from multiprocessing import Lock, Value
 from lya_2pt.tracer_utils import get_angle
 from lya_2pt.compute_utils import fast_dot_product, fast_outer_product
 from lya_2pt.compute_utils import get_pixel_pairs_auto, get_pixel_pairs_cross
+counter = Value('i', 0)
+lock = Lock()
 
 
-def compute_dmat(tracers1, tracers2, config, auto_flag=False):
+def compute_dmat(tracers1, config, auto_flag=False):
     """Compute distortion matrix
 
     Parameters
@@ -28,6 +32,7 @@ def compute_dmat(tracers1, tracers2, config, auto_flag=False):
     """
     get_old_distortion = config.getboolean('get-old-distortion')
     rejection_fraction = config.getfloat('rejection_fraction')
+    num_data = config.getint('num_tracers')
     rp_min = config.getfloat('rp_min')
     rp_max = config.getfloat('rp_max')
     rt_max = config.getfloat('rt_max')
@@ -49,6 +54,13 @@ def compute_dmat(tracers1, tracers2, config, auto_flag=False):
     num_pairs_used = 0
     for tracer1 in tracers1:
         assert tracer1.neighbours is not None
+        with lock:
+            xicounter = round(counter.value * 100. / num_data, 2)
+            if (counter.value % 1000 == 0):
+                print(("computing xi: {}%").format(xicounter))
+                sys.stdout.flush()
+            counter.value += 1
+
         w = np.random.rand(tracer1.num_neighbours) > rejection_fraction
         num_pairs += tracer1.neighbours.size
         num_pairs_used += w.sum()

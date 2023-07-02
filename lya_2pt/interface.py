@@ -160,12 +160,12 @@ class Interface:
             [len(tracers)for tracers in self.tracer2_reader.tracers.values()]))
         self.healpix_ids = np.array(list(self.tracers1.keys()))
 
-        if len(files) > 1 and self.num_cpu > 1:
-            with Pool(processes=self.num_cpu) as pool:
-                pool.map(self.find_neighbours, self.healpix_ids)
-        else:
-            for healpix_id in self.healpix_ids:
-                self.find_neighbours(healpix_id)
+        # if len(files) > 1 and self.num_cpu > 1:
+        #     with Pool(processes=self.num_cpu) as pool:
+        #         pool.map(self.find_neighbours, self.healpix_ids)
+        # else:
+        #     for healpix_id in self.healpix_ids:
+        #         self.find_neighbours(healpix_id)
 
     def read_tracer1(self, file):
         forest_reader = ForestHealpixReader(
@@ -173,20 +173,6 @@ class Interface:
 
         return forest_reader
 
-    def find_neighbours(self, healpix_id):
-        hp_neighs = [other_hp for other_hp in self.healpix_neighbours[healpix_id]
-                     if other_hp in self.tracers2]
-        hp_neighs += [healpix_id]
-
-        for tracer1 in self.tracers1[healpix_id]:
-            neighbours = [tracer2 for hp in hp_neighs for tracer2 in self.tracers2[hp]]
-
-            if self.auto_flag:
-                neighbours = [tracer2 for tracer2 in neighbours if tracer1.ra > tracer2.ra]
-
-            tracer1.add_neighbours(
-                neighbours, self.auto_flag, self.z_min, self.z_max, self.rp_max, self.rt_max)
-            assert tracer1.neighbours is not None
 
     def run(self, healpix_ids=None):
         """Run the computation
@@ -205,37 +191,51 @@ class Interface:
         self.xi_output = {}
         if self.config['compute'].getboolean('compute-correlation', False):
             if self.num_cpu > 1:
-                arguments = [(tracers1, self.tracers2, self.settings, self.auto_flag)
-                             for tracers1 in self.tracers1.values()]
-
                 with Pool(processes=self.num_cpu) as pool:
-                    results = pool.starmap(compute_xi, arguments)
+                    results = pool.map(self.compute_xi, self.healpix_ids)
 
                 for hp_id, res in zip(self.tracers1.keys(), results):
                     self.xi_output[hp_id] = res
             else:
-                for hp_id, tracers1 in self.tracers1.items():
-                    self.xi_output[hp_id] = compute_xi(
-                        tracers1, self.tracers2, self.settings, self.auto_flag)
+                for healpix_id in self.healpix_ids:
+                    self.xi_output[healpix_id] = self.compute_xi(healpix_id)
 
         self.dmat_output = {}
         if self.config['compute'].getboolean('compute-distortion-matrix', False):
             if self.num_cpu > 1:
-                arguments = [(tracers1, self.tracers2, self.settings)
-                             for tracers1 in self.tracers1.values()]
-
                 with Pool(processes=self.num_cpu) as pool:
-                    results = pool.starmap(compute_dmat,
-                                           tqdm.tqdm(arguments, total=len(self.tracers1)))
+                    results = pool.map(self.compute_dmat, self.healpix_ids)
 
                 for hp_id, res in zip(self.tracers1.keys(), results):
                     self.dmat_output[hp_id] = res
             else:
-                for hp_id, tracers1 in self.tracers1.items():
-                    self.dmat_output[hp_id] = compute_dmat(
-                        tracers1, self.tracers2, self.settings, self.auto_flag)
+                for healpix_id in self.healpix_ids:
+                    self.dmat_output[healpix_id] = self.compute_dmat(healpix_id)
 
         # TODO: add other computations
+
+    def compute_xi(self, healpix_id):
+        self.find_neighbours(healpix_id)
+        return compute_xi(self.tracers1[healpix_id], self.settings, self.auto_flag)
+
+    def compute_dmat(self, healpix_id):
+        self.find_neighbours(healpix_id)
+        return compute_dmat(self.tracers1[healpix_id], self.settings, self.auto_flag)
+
+    def find_neighbours(self, healpix_id):
+        hp_neighs = [other_hp for other_hp in self.healpix_neighbours[healpix_id]
+                     if other_hp in self.tracers2]
+        hp_neighs += [healpix_id]
+
+        for tracer1 in self.tracers1[healpix_id]:
+            neighbours = [tracer2 for hp in hp_neighs for tracer2 in self.tracers2[hp]]
+
+            if self.auto_flag:
+                neighbours = [tracer2 for tracer2 in neighbours if tracer1.ra > tracer2.ra]
+
+            tracer1.add_neighbours(
+                neighbours, self.auto_flag, self.z_min, self.z_max, self.rp_max, self.rt_max)
+            assert tracer1.neighbours is not None
 
     def write_results(self):
         if self.config['compute'].getboolean('compute-correlation', False):

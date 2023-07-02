@@ -8,7 +8,7 @@ counter = Value('i', 0)
 lock = Lock()
 
 
-def compute_xi(tracers1, tracers2, config, auto_flag=False):
+def compute_xi(tracers1, config, auto_flag=False):
     """Compute correlation function
 
     Parameters
