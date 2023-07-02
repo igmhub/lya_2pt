@@ -162,8 +162,7 @@ class Interface:
 
         if len(files) > 1 and self.num_cpu > 1:
             with Pool(processes=self.num_cpu) as pool:
-                _ = tqdm.tqdm(pool.imap(self.find_neighbours, self.healpix_ids),
-                              total=len(self.healpix_ids))
+                pool.map(self.find_neighbours, self.healpix_ids)
         else:
             for healpix_id in self.healpix_ids:
                 self.find_neighbours(healpix_id)
@@ -175,9 +174,6 @@ class Interface:
         return forest_reader
 
     def find_neighbours(self, healpix_id):
-        # forest_reader.find_neighbours(
-        #     self.tracer2_reader, self.z_min, self.z_max, self.rp_max, self.rt_max)
-        # return forest_reader
         hp_neighs = [other_hp for other_hp in self.healpix_neighbours[healpix_id]
                      if other_hp in self.tracers2]
         hp_neighs += [healpix_id]
