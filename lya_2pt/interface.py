@@ -1,6 +1,7 @@
 from multiprocessing import Pool
 
 import numpy as np
+import tqdm
 
 from lya_2pt.correlation import compute_xi
 from lya_2pt.distortion import compute_dmat
@@ -117,7 +118,7 @@ class Interface:
 
         if self.num_cpu > 1:
             with Pool(processes=self.num_cpu) as pool:
-                results = pool.map(self.read_tracer1, files)
+                results = list(tqdm.tqdm(pool.imap(self.read_tracer1, files), total=len(files)))
         else:
             results = [self.read_tracer1(file) for file in files]
 
@@ -197,7 +198,8 @@ class Interface:
                              for tracers1 in self.tracers1.values()]
 
                 with Pool(processes=self.num_cpu) as pool:
-                    results = pool.starmap(compute_xi, arguments)
+                    results = pool.starmap(compute_xi,
+                                           tqdm.tqdm(arguments, total=len(self.tracers1)))
 
                 for hp_id, res in zip(self.tracers1.keys(), results):
                     self.xi_output[hp_id] = res
@@ -213,7 +215,8 @@ class Interface:
                              for tracers1 in self.tracers1.values()]
 
                 with Pool(processes=self.num_cpu) as pool:
-                    results = pool.starmap(compute_dmat, arguments)
+                    results = pool.starmap(compute_dmat,
+                                           tqdm.tqdm(arguments, total=len(self.tracers1)))
 
                 for hp_id, res in zip(self.tracers1.keys(), results):
                     self.dmat_output[hp_id] = res
