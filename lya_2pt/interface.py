@@ -185,9 +185,9 @@ class Interface:
             if self.num_cpu > 1:
                 context = multiprocessing.get_context('fork')
                 with context.Pool(processes=self.num_cpu) as pool:
-                    results = pool.map(self.compute_xi, self.healpix_ids)
+                    results = pool.imap(self.compute_xi, self.healpix_ids)
 
-                for hp_id, res in zip(self.tracers1.keys(), results):
+                for hp_id, res in results:
                     self.xi_output[hp_id] = res
             else:
                 for healpix_id in self.healpix_ids:
@@ -210,7 +210,7 @@ class Interface:
 
     def compute_xi(self, healpix_id):
         self.find_neighbours(healpix_id)
-        return compute_xi(self.tracers1[healpix_id], self.settings, self.auto_flag)
+        return healpix_id, compute_xi(self.tracers1[healpix_id], self.settings, self.auto_flag)
 
     def compute_dmat(self, healpix_id):
         self.find_neighbours(healpix_id)
