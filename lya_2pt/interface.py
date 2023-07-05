@@ -185,7 +185,7 @@ class Interface:
             if self.num_cpu > 1:
                 context = multiprocessing.get_context('fork')
                 with context.Pool(processes=self.num_cpu) as pool:
-                    results = pool.imap(self.compute_xi, self.healpix_ids)
+                    results = pool.imap_unordered(self.compute_xi, self.healpix_ids)
 
                 for hp_id, res in results:
                     self.xi_output[hp_id] = res
