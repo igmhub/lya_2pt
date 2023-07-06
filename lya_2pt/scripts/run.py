@@ -19,6 +19,7 @@ def main():
     config.read(args.config)
 
     print('Initializing')
+    total_t1 = time.time()
     lya2pt = Interface(config)
 
     print('Reading tracers')
@@ -38,6 +39,8 @@ def main():
 
     print('Exporting')
     lya2pt.export.run(lya2pt.config, lya2pt.settings)
+    total_t2 = time.time()
+    print(f'Total time: {(total_t2-total_t1):.3f} sec')
     print('Done')
 
 

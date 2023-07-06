@@ -65,7 +65,7 @@ def compute_dmat(healpix_id):
         num_pairs += neighbours.size
         num_pairs_used += w.sum()
 
-        for tracer2 in neighbours:
+        for tracer2 in neighbours[w]:
             compute_tracer_pair_dmat(
                 tracer1, tracer2, distortion, weights_dmat,
                 weights_grid, rp_grid, rt_grid, z_grid
