@@ -1,15 +1,14 @@
 import sys
 import numpy as np
 from numba import njit
-from multiprocessing import Lock, Value
+
+import lya_2pt.global_data as globals
 from lya_2pt.tracer_utils import get_angle
 from lya_2pt.compute_utils import fast_dot_product, fast_outer_product
 from lya_2pt.compute_utils import get_pixel_pairs_auto, get_pixel_pairs_cross
-counter = Value('i', 0)
-lock = Lock()
 
 
-def compute_dmat(tracers1, config, auto_flag=False):
+def compute_dmat(healpix_id):
     """Compute distortion matrix
 
     Parameters
@@ -30,18 +29,12 @@ def compute_dmat(tracers1, config, auto_flag=False):
         transverse separation grid, redshift grid, sum of weights in each bin,
         total number of pairs per bin, number of pairs used per bin
     """
-    get_old_distortion = config.getboolean('get-old-distortion')
-    rejection_fraction = config.getfloat('rejection_fraction')
-    num_data = config.getint('num_tracers')
-    rp_min = config.getfloat('rp_min')
-    rp_max = config.getfloat('rp_max')
-    rt_max = config.getfloat('rt_max')
-    num_bins_rp = config.getint('num_bins_rp')
-    num_bins_rt = config.getint('num_bins_rt')
-    num_bins_rp_model = config.getint('num_bins_rp_model')
-    num_bins_rt_model = config.getint('num_bins_rt_model')
-    total_size = int(num_bins_rp * num_bins_rt)
-    total_size_model = int(num_bins_rp_model * num_bins_rt_model)
+    hp_neighs = [other_hp for other_hp in globals.healpix_neighbours[healpix_id]
+                 if other_hp in globals.tracers2]
+    hp_neighs += [healpix_id]
+
+    total_size = int(globals.num_bins_rp * globals.num_bins_rt)
+    total_size_model = int(globals.num_bins_rp_model * globals.num_bins_rt_model)
 
     distortion = np.zeros((total_size, total_size_model))
     weights_dmat = np.zeros(total_size)
@@ -52,34 +45,38 @@ def compute_dmat(tracers1, config, auto_flag=False):
 
     num_pairs = 0
     num_pairs_used = 0
-    for tracer1 in tracers1:
-        assert tracer1.neighbours is not None
-        with lock:
-            xicounter = round(counter.value * 100. / num_data, 2)
-            if (counter.value % 1000 == 0):
+    for tracer1 in globals.tracers1[healpix_id]:
+        with globals.lock:
+            xicounter = round(globals.counter.value * 100. / globals.num_tracers, 2)
+            if (globals.counter.value % 1000 == 0):
                 print(("computing xi: {}%").format(xicounter))
                 sys.stdout.flush()
-            counter.value += 1
+            globals.counter.value += 1
 
-        w = np.random.rand(tracer1.num_neighbours) > rejection_fraction
-        num_pairs += tracer1.neighbours.size
-        num_pairs_used += w.sum()
+        potential_neighbours = [tracer2 for hp in hp_neighs for tracer2 in globals.tracers2[hp]]
 
-        for tracer2 in tracer1.neighbours[w]:
-            compute_tracer_pair_dmat(
-                tracer1, tracer2, auto_flag, get_old_distortion, rp_min, rp_max, rt_max,
-                num_bins_rp, num_bins_rt, num_bins_rp_model, num_bins_rt_model,
-                distortion, weights_dmat, weights_grid, rp_grid, rt_grid, z_grid
+        neighbours = tracer1.get_neighbours(
+            potential_neighbours, globals.auto_flag,
+            globals.z_min, globals.z_max,
+            globals.rp_max, globals.rt_max
             )
 
-    return (distortion, weights_dmat, rp_grid, rt_grid, z_grid,
-            weights_grid, num_pairs, num_pairs_used)
+        w = np.random.rand(neighbours.size) > globals.rejection_fraction
+        num_pairs += neighbours.size
+        num_pairs_used += w.sum()
+
+        for tracer2 in neighbours:
+            compute_tracer_pair_dmat(
+                tracer1, tracer2, distortion, weights_dmat,
+                weights_grid, rp_grid, rt_grid, z_grid
+            )
+
+    return healpix_id, (distortion, weights_dmat, rp_grid, rt_grid, z_grid,
+                        weights_grid, num_pairs, num_pairs_used)
 
 
 def compute_tracer_pair_dmat(
-    tracer1, tracer2, auto_flag, get_old_distortion, rp_min, rp_max, rt_max,
-    num_bins_rp, num_bins_rt, num_bins_rp_model, num_bins_rt_model,
-    distortion, weights_dmat, weights_grid, rp_grid, rt_grid, z_grid
+    tracer1, tracer2, distortion, weights_dmat, weights_grid, rp_grid, rt_grid, z_grid
 ):
     # Compute angle between the two tracers
     angle = get_angle(
@@ -88,20 +85,18 @@ def compute_tracer_pair_dmat(
     )
 
     # Find and save all relevant pixel pairs
-    if auto_flag:
+    if globals.auto_flag:
         pixel_pairs, rp_rt_pairs = get_pixel_pairs_auto(
-            tracer1.distances, tracer2.distances, angle, rp_min, rp_max, rt_max,
-            num_bins_rp, num_bins_rt, num_bins_rp_model, num_bins_rt_model)
+            tracer1.distances, tracer2.distances, angle)
     else:
         pixel_pairs, rp_rt_pairs = get_pixel_pairs_cross(
-            tracer1.distances, tracer2.distances, angle, rp_min, rp_max, rt_max,
-            num_bins_rp, num_bins_rt, num_bins_rp_model, num_bins_rt_model)
+            tracer1.distances, tracer2.distances, angle)
 
     # Identify the unique bins in rp/rt space
     unique_model_bins, unique_data_bins = get_unique_bins(pixel_pairs)
 
     # Compute old distortion matrix
-    if get_old_distortion:
+    if globals.get_old_distortion:
         # Compute all eta pairs and effective coordinate grids
         etas, pixel_pairs_weights, pair_rp_eff, pair_rt_eff, pair_z_eff = get_etas(
             tracer1.weights, tracer1.z, tracer1.order,

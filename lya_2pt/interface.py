@@ -3,6 +3,7 @@ import multiprocessing
 import numpy as np
 import tqdm
 
+import lya_2pt.global_data as globals
 from lya_2pt.correlation import compute_xi
 from lya_2pt.distortion import compute_dmat
 from lya_2pt.cosmo import Cosmology
@@ -83,10 +84,18 @@ class Interface:
 
         # parse config
         self.settings = parse_config(config["settings"], defaults, accepted_options)
-        self.z_min = self.settings.getfloat("z_min")
-        self.z_max = self.settings.getfloat("z_max")
-        self.rp_max = self.settings.getfloat("rp_max")
-        self.rt_max = self.settings.getfloat("rt_max")
+        globals.z_min = self.settings.getfloat("z_min")
+        globals.z_max = self.settings.getfloat("z_max")
+        globals.rp_min = self.settings.getfloat('rp_min')
+        globals.rp_max = self.settings.getfloat("rp_max")
+        globals.rt_max = self.settings.getfloat("rt_max")
+        globals.num_bins_rp = self.settings.getint('num_bins_rp')
+        globals.num_bins_rt = self.settings.getint('num_bins_rt')
+        globals.num_bins_rp_model = self.settings.getint('num_bins_rp_model')
+        globals.num_bins_rt_model = self.settings.getint('num_bins_rt_model')
+        globals.rejection_fraction = self.settings.getfloat('rejection_fraction')
+        globals.get_old_distortion = self.settings.getboolean('get-old-distortion')
+
         self.nside = self.settings.getint("nside")
         self.num_cpu = self.settings.getint("num-cpu")
 
@@ -95,6 +104,7 @@ class Interface:
 
         # check if we are working with an auto-correlation
         self.auto_flag = "tracer2" not in config
+        globals.auto_flag = self.auto_flag
         self.need_distortion = self.config['compute'].getboolean('compute-distortion-matrix', False)
 
         # Find files
@@ -130,41 +140,49 @@ class Interface:
         forest_readers = {reader.healpix_id: reader for reader in results}
         del results
 
-        self.healpix_neighbours = {}
+        healpix_neighbours = {}
         for reader in forest_readers.values():
-            self.healpix_neighbours[reader.healpix_id] = reader.find_healpix_neighbours(
+            healpix_neighbours[reader.healpix_id] = reader.find_healpix_neighbours(
                 self.nside, self.ang_max)
 
         unique_healpix_neighbours = np.unique(np.hstack([
-            neigh for neigh in self.healpix_neighbours.values()]))
+            neigh for neigh in healpix_neighbours.values()]))
 
         if self.auto_flag:
-            healpix_neighbours = unique_healpix_neighbours[~np.isin(unique_healpix_neighbours,
-                                                                    list(forest_readers.keys()))]
-            self.tracer2_reader = Tracer2Reader(
-                self.config["tracer1"], healpix_neighbours, self.cosmo,
+            auto_healpix_neighbours = unique_healpix_neighbours[
+                ~np.isin(unique_healpix_neighbours, list(forest_readers.keys()))]
+
+            tracer2_reader = Tracer2Reader(
+                self.config["tracer1"], auto_healpix_neighbours, self.cosmo,
                 self.num_cpu, self.need_distortion
                 )
             for forest_reader in forest_readers.values():
-                self.tracer2_reader.add_tracers(forest_reader)
+                tracer2_reader.add_tracers(forest_reader)
         else:
-            self.tracer2_reader = Tracer2Reader(
+            tracer2_reader = Tracer2Reader(
                 self.config["tracer2"], unique_healpix_neighbours, self.cosmo,
                 self.num_cpu, self.need_distortion
                 )
 
-        self.tracers1 = {hp_id: forest_reader.tracers
-                         for hp_id, forest_reader in forest_readers.items()}
-        self.tracers2 = self.tracer2_reader.tracers
-        self.settings['num_tracers'] = str(np.sum(
-            [len(tracers)for tracers in self.tracer2_reader.tracers.values()]))
-        self.healpix_ids = np.array(list(self.tracers1.keys()))
+        globals.tracers1 = {hp_id: forest_reader.tracers
+                            for hp_id, forest_reader in forest_readers.items()}
+        globals.tracers2 = tracer2_reader.tracers
+        globals.healpix_neighbours = healpix_neighbours
+
+        globals.num_tracers = np.sum(
+            [len(tracers)for tracers in tracer2_reader.tracers.values()])
+        self.healpix_ids = np.array(list(globals.tracers1.keys()))
 
     def read_tracer1(self, file):
         forest_reader = ForestHealpixReader(
             self.config["tracer1"], file, self.cosmo, self.auto_flag, self.need_distortion)
 
         return forest_reader
+
+    @staticmethod
+    def reset_global_counter():
+        globals.counter = multiprocessing.Value('i', 0)
+        globals.lock = multiprocessing.Lock()
 
     def run(self, healpix_ids=None):
         """Run the computation
@@ -178,58 +196,42 @@ class Interface:
         List of healpix_ids to run on, by default None
         """
         if healpix_ids is None:
-            healpix_ids = list(self.tracers1.keys())
+            healpix_ids = self.healpix_ids
+        else:
+            for id in healpix_ids:
+                if id not in self.healpix_ids:
+                    raise ValueError(f'HEALPix ID {id} not found. '
+                                     f'Currently stored IDs: {self.healpix_ids}')
 
         self.xi_output = {}
         if self.config['compute'].getboolean('compute-correlation', False):
+            self.reset_global_counter()
             if self.num_cpu > 1:
                 context = multiprocessing.get_context('fork')
                 with context.Pool(processes=self.num_cpu) as pool:
-                    results = pool.imap_unordered(self.compute_xi, self.healpix_ids)
+                    results = pool.map(compute_xi, self.healpix_ids)
 
                 for hp_id, res in results:
                     self.xi_output[hp_id] = res
             else:
                 for healpix_id in self.healpix_ids:
-                    self.xi_output[healpix_id] = self.compute_xi(healpix_id)
+                    self.xi_output[healpix_id] = compute_xi(healpix_id)[1]
 
         self.dmat_output = {}
         if self.config['compute'].getboolean('compute-distortion-matrix', False):
+            self.reset_global_counter()
             if self.num_cpu > 1:
                 context = multiprocessing.get_context('fork')
                 with context.Pool(processes=self.num_cpu) as pool:
-                    results = pool.map(self.compute_dmat, self.healpix_ids)
+                    results = pool.map(compute_dmat, self.healpix_ids)
 
-                for hp_id, res in zip(self.tracers1.keys(), results):
+                for hp_id, res in results:
                     self.dmat_output[hp_id] = res
             else:
                 for healpix_id in self.healpix_ids:
-                    self.dmat_output[healpix_id] = self.compute_dmat(healpix_id)
+                    self.dmat_output[healpix_id] = compute_dmat(healpix_id)[1]
 
         # TODO: add other computations
-
-    def compute_xi(self, healpix_id):
-        self.find_neighbours(healpix_id)
-        return healpix_id, compute_xi(self.tracers1[healpix_id], self.settings, self.auto_flag)
-
-    def compute_dmat(self, healpix_id):
-        self.find_neighbours(healpix_id)
-        return compute_dmat(self.tracers1[healpix_id], self.settings, self.auto_flag)
-
-    def find_neighbours(self, healpix_id):
-        hp_neighs = [other_hp for other_hp in self.healpix_neighbours[healpix_id]
-                     if other_hp in self.tracers2]
-        hp_neighs += [healpix_id]
-
-        for tracer1 in self.tracers1[healpix_id]:
-            neighbours = [tracer2 for hp in hp_neighs for tracer2 in self.tracers2[hp]]
-
-            if self.auto_flag:
-                neighbours = [tracer2 for tracer2 in neighbours if tracer1.ra > tracer2.ra]
-
-            tracer1.add_neighbours(
-                neighbours, self.auto_flag, self.z_min, self.z_max, self.rp_max, self.rt_max)
-            assert tracer1.neighbours is not None
 
     def write_results(self):
         if self.config['compute'].getboolean('compute-correlation', False):

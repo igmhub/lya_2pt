@@ -1,14 +1,12 @@
 import sys
 import numpy as np
 from numba import njit
-from multiprocessing import Lock, Value
 
+import lya_2pt.global_data as globals
 from lya_2pt.tracer_utils import get_angle
-counter = Value('i', 0)
-lock = Lock()
 
 
-def compute_xi(tracers1, config, auto_flag=False):
+def compute_xi(healpix_id):
     """Compute correlation function
 
     Parameters
@@ -28,13 +26,11 @@ def compute_xi(tracers1, config, auto_flag=False):
         correlation function, sum of weights in each bin, line-of-sight separation grid,
         transverse separation grid, redshift grid, number of pixel pairs in each bin
     """
-    rp_min = config.getfloat('rp_min')
-    rp_max = config.getfloat('rp_max')
-    rt_max = config.getfloat('rt_max')
-    num_bins_rp = config.getint('num_bins_rp')
-    num_bins_rt = config.getint('num_bins_rt')
-    num_data = config.getint('num_tracers')
-    total_size = int(num_bins_rp * num_bins_rt)
+    hp_neighs = [other_hp for other_hp in globals.healpix_neighbours[healpix_id]
+                 if other_hp in globals.tracers2]
+    hp_neighs += [healpix_id]
+
+    total_size = int(globals.num_bins_rp * globals.num_bins_rt)
 
     xi_grid = np.zeros(total_size)
     weights_grid = np.zeros(total_size)
@@ -43,16 +39,23 @@ def compute_xi(tracers1, config, auto_flag=False):
     z_grid = np.zeros(total_size)
     num_pairs_grid = np.zeros(total_size, dtype=np.int32)
 
-    for tracer1 in tracers1:
-        assert tracer1.neighbours is not None
-        with lock:
-            xicounter = round(counter.value * 100. / num_data, 2)
-            if (counter.value % 1000 == 0):
+    for tracer1 in globals.tracers1[healpix_id]:
+        with globals.lock:
+            xicounter = round(globals.counter.value * 100. / globals.num_tracers, 2)
+            if (globals.counter.value % 1000 == 0):
                 print(("computing xi: {}%").format(xicounter))
                 sys.stdout.flush()
-            counter.value += 1
+            globals.counter.value += 1
 
-        for tracer2 in tracer1.neighbours:
+        potential_neighbours = [tracer2 for hp in hp_neighs for tracer2 in globals.tracers2[hp]]
+
+        neighbours = tracer1.get_neighbours(
+            potential_neighbours, globals.auto_flag,
+            globals.z_min, globals.z_max,
+            globals.rp_max, globals.rt_max
+            )
+
+        for tracer2 in neighbours:
             angle = get_angle(
                 tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra, tracer1.dec,
                 tracer2.x_cart, tracer2.y_cart, tracer2.z_cart, tracer2.ra, tracer2.dec
@@ -61,11 +64,9 @@ def compute_xi(tracers1, config, auto_flag=False):
             compute_xi_pair(
                 tracer1.deltas, tracer1.weights, tracer1.z, tracer1.dist_c, tracer1.dist_m,
                 tracer2.deltas, tracer2.weights, tracer2.z, tracer2.dist_c, tracer2.dist_m,
-                angle, auto_flag, rp_min, rp_max, rt_max, num_bins_rp, num_bins_rt,
-                xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid
+                angle, xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid
                 )
 
-        setattr(tracer1, "neighbours", None)
     # Normalize correlation and average coordinate grids
     w = weights_grid > 0
     xi_grid[w] /= weights_grid[w]
@@ -73,14 +74,13 @@ def compute_xi(tracers1, config, auto_flag=False):
     rt_grid[w] /= weights_grid[w]
     z_grid[w] /= weights_grid[w]
 
-    return xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid
+    return healpix_id, (xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid)
 
 
 @njit
 def compute_xi_pair(
         deltas1, weights1, z1, dist_c1, dist_m1,
         deltas2, weights2, z2, dist_c2, dist_m2, angle,
-        auto_flag, rp_min, rp_max, rt_max, rp_size, rt_size,
         xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid
 ):
     sin_angle = np.sin(angle / 2)
@@ -96,17 +96,18 @@ def compute_xi_pair(
             # Comoving separation between the two pixels
             rp = (dist_c1[i] - dist_c2[j]) * cos_angle
             rt = (dist_m1[i] + dist_m2[j]) * sin_angle
-            if auto_flag:
+            if globals.auto_flag:
                 rp = np.abs(rp)
 
             # Skip if pixel pair is too far apart
-            if (rp < rp_min) or (rp >= rp_max) or (rt >= rt_max):
+            if (rp < globals.rp_min) or (rp >= globals.rp_max) or (rt >= globals.rt_max):
                 continue
 
             # Compute bin in the correlation function to asign the pixel pair to
-            bins_rp = np.floor((rp - rp_min) / (rp_max - rp_min) * rp_size)
-            bins_rt = np.floor(rt / rt_max * rt_size)
-            bins = int(bins_rt + rt_size * bins_rp)
+            bins_rp = np.floor((rp - globals.rp_min) / (globals.rp_max - globals.rp_min)
+                               * globals.num_bins_rp)
+            bins_rt = np.floor(rt / globals.rt_max * globals.num_bins_rt)
+            bins = int(bins_rt + globals.num_bins_rt * bins_rp)
 
             # Compute and write correlation and associated quantities
             weight12 = weights1[i] * weights2[j]
