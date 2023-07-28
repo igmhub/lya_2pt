@@ -49,7 +49,7 @@ def compute_dmat(healpix_id):
         with globals.lock:
             xicounter = round(globals.counter.value * 100. / globals.num_tracers, 2)
             if (globals.counter.value % 1000 == 0):
-                print(("computing xi: {}%").format(xicounter))
+                print(("computing dmat: {}%").format(xicounter))
                 sys.stdout.flush()
             globals.counter.value += 1
 
