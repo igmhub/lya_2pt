@@ -187,3 +187,17 @@ def get_projection_matrix(log_lambda, weights, order):
 
     _, __, Vh = np.linalg.svd(input_vectors_matrix, full_matrices=False)
     return Vh.T, np.eye(weights.size) - Vh.T @ Vh
+
+
+def gram_schmidt(log_lambda, weights, order):
+    basis = []
+    for n in range(order + 1):
+        v = log_lambda**n
+        for b in basis:
+            v -= b * np.dot(v, b * weights)
+        norm = np.dot(v, v * weights)
+        if norm < 1e-14:
+            continue
+        v /= np.sqrt(norm)
+        basis.append(v)
+    return np.array(basis)

@@ -2,7 +2,7 @@
 import numpy as np
 
 from lya_2pt.constants import ABSORBER_IGM
-from lya_2pt.tracer_utils import rebin, project_deltas, get_angle_list, get_projection_matrix
+from lya_2pt.tracer_utils import rebin, project_deltas, get_angle_list, gram_schmidt
 
 
 class Tracer:
@@ -198,7 +198,7 @@ class Tracer:
         # For auto correlation we make a selection based on RA to make sure we don't repeat pairs
         if auto_flag:
             neighbours = [tracer for tracer in neighbours if self.ra > tracer.ra]
-        
+
         # We don't correlate things in the same line of sight
         # due to continuum fitting errors
         neighbours = [tracer for tracer in neighbours if tracer.los_id != self.los_id]
@@ -275,10 +275,13 @@ class Tracer:
         if old_projection:
             self.deltas = project_deltas(self.log_lambda, self.deltas, self.weights, self.order)
         else:
-            self.proj_vec_mat, projection = get_projection_matrix(
-                self.log_lambda, self.weights, self.order)
+            basis = gram_schmidt(self.log_lambda, self.weights, self.order)
 
-            self.deltas = projection @ self.deltas
+            for b in basis:
+                self.deltas -= b * np.dot(b * self.weights, self.deltas)
+
+            self.proj_vec_mat = (basis * self.weights).T
+
         self.is_projected = True
 
     def apply_z_evol_to_weights(self, redshift_evol, reference_z):

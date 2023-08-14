@@ -256,7 +256,7 @@ def compute_inner_sums(
     kronecker1_forest2 = np.zeros((vmat1.shape[0], unique_model_bins.size, vmat2.shape[1]))
     kronecker2_forest1 = np.zeros((vmat2.shape[0], unique_model_bins.size, vmat1.shape[1]))
     forest1_forest2 = np.zeros((unique_model_bins.size, vmat1.shape[1] * vmat2.shape[1]))
-    pixel_pairs_weights = np.zeros(pixel_pairs.shape[0])
+    pixel_pairs_weights = np.zeros((pixel_pairs.shape[0], 2))
 
     pair_rp_eff = np.zeros(unique_model_bins.size)
     pair_rt_eff = np.zeros(unique_model_bins.size)
@@ -271,7 +271,7 @@ def compute_inner_sums(
                 forest1_forest2[mbin, M + N * vmat2.shape[1]] += vmat1[i, N] * vmat2[j, M]
 
         weight12 = weights1[i] * weights2[j]
-        pixel_pairs_weights[k] = weight12
+        pixel_pairs_weights[k, :] = (weights1[i], weights2[j])
 
         pair_rp_eff[mbin] += rp_rt_pairs[k][0] * weight12
         pair_rt_eff[mbin] += rp_rt_pairs[k][1] * weight12
@@ -283,17 +283,17 @@ def compute_inner_sums(
 
 @njit
 def compute_outer_sum(
-    pair_dmat_slice, mbin_size, weight12, kronecker1_forest2_slice, kronecker2_forest1_slice,
-    forest1_forest2, vmat1_slice, vmat2_slice, vmat1_vmat2
+    pair_dmat_slice, mbin_size, weight1, weight2, kronecker1_forest2_slice,
+    kronecker2_forest1_slice, forest1_forest2, vmat1_slice, vmat2_slice, vmat1_vmat2
 ):
     for mbin_prime in range(mbin_size):
         kronecker1_forest2_sum = fast_dot_product(kronecker1_forest2_slice[mbin_prime], vmat2_slice)
         kronecker2_forest1_sum = fast_dot_product(kronecker2_forest1_slice[mbin_prime], vmat1_slice)
         forest1_forest2_sum = fast_dot_product(forest1_forest2[mbin_prime], vmat1_vmat2)
 
-        pair_dmat_slice[mbin_prime] += weight12 * (kronecker1_forest2_sum
-                                                   + kronecker2_forest1_sum
-                                                   + forest1_forest2_sum)
+        pair_dmat_slice[mbin_prime] += (weight1 * kronecker1_forest2_sum
+                                        + weight2 * kronecker2_forest1_sum
+                                        + forest1_forest2_sum)
 
 
 @njit
@@ -305,15 +305,15 @@ def get_general_pair_dmat(
     pair_wdmat = np.zeros(unique_data_bins.size)
     pair_weights_eff = np.zeros(unique_model_bins.size)
 
-    for ((i, j, mbin, dbin), weight12) in zip(pixel_pairs, pixel_pairs_weights):
-        pair_wdmat[dbin] += weight12
-        pair_weights_eff[mbin] += weight12
+    for ((i, j, mbin, dbin), (weight1, weight2)) in zip(pixel_pairs, pixel_pairs_weights):
+        pair_wdmat[dbin] += weight1 * weight2
+        pair_weights_eff[mbin] += weight1 * weight2
 
-        pair_dmat[dbin, mbin] += weight12
+        pair_dmat[dbin, mbin] += weight1 * weight2
         vmat1_vmat2 = fast_outer_product(vmat1[i], vmat2[j])
 
         compute_outer_sum(
-            pair_dmat[dbin], unique_model_bins.size, weight12,
+            pair_dmat[dbin], unique_model_bins.size, weight1, weight2,
             kronecker1_forest2[i], kronecker2_forest1[j],
             forest1_forest2, vmat1[i], vmat2[j], vmat1_vmat2)
 
