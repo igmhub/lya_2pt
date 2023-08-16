@@ -2,6 +2,7 @@ import numpy as np
 from numba import njit
 from scipy.constants import speed_of_light
 from scipy.interpolate import RegularGridInterpolator as RGI
+from scipy.sparse import coo_array
 
 import lya_2pt.global_data as globals
 
@@ -66,24 +67,22 @@ def get_xi_bins(tracer1, tracer2, angle):
     bins_rt = (rt / globals.rt_max * globals.num_bins_rt).astype(int)
     bins = (bins_rt + globals.num_bins_rt * bins_rp).astype(int)
 
-    return bins
+    return bins, mask
 
 
 def build_deriv(xi_size, bins):
     c_deriv_dict = {}
-    c_deriv_masks = {}
     for bin_index in np.unique(bins):
         if bin_index >= xi_size:
             continue
 
-        mask2 = np.array(np.where(bins == bin_index)).T
-        mask2 = mask2[mask2[:, 1].argsort()].T
+        row, col = np.where(bins == bin_index)
 
-        c_deriv_dict[bin_index] = np.zeros(xi.shape)
-        c_deriv_dict[bin_index][mask2[0], mask2[1]] = 1
-        c_deriv_masks[bin_index] = mask2
+        c_deriv_dict[bin_index] = coo_array(
+            (np.ones(row.size), (row, col)), shape=bins.shape
+        ).tocsr()
 
-    return c_deriv_dict, c_deriv_masks
+    return c_deriv_dict
 
 
 @njit
@@ -103,8 +102,8 @@ def compute_raw(invcov, mask, size1, size2):
 
             start = i + 1
             end = i + 1
-        elif mask[1][i+1] != col_idx:
-            row_idx = mask[0][start:i+1]
+        elif mask[1][i + 1] != col_idx:
+            row_idx = mask[0][start:i + 1]
             prod[:, col_idx] += np.sum(invcov[:, row_idx], axis=1)
 
             start = i + 1
@@ -123,23 +122,28 @@ def compute_fisher(tracer1, tracer2):
     pass
 
 
-def compute_xi_and_fisher_with_vectors(tracer1, tracer2, c_deriv_masks):
-    c_deriv_dict = {}
-    for key, mask1 in c_deriv_masks.items():
-        c_deriv_dict[key] = np.zeros((tracer1.deltas.size, tracer2.deltas.size), dtype=np.float_)
-        c_deriv_dict[key][mask1[0], mask1[1]] = 1
+def compute_xi_and_fisher_with_vectors(
+        tracer1, tracer2, xi1d_interp,
+        xi_est, fisher_est
+):
+    invcov1 = build_inverse_covariance(tracer1, xi1d_interp)
+    invcov2 = build_inverse_covariance(tracer2, xi1d_interp)
 
-    xi_est = []
-    fisher = []
+    angle = None
+    bins = get_xi_bins(tracer1, tracer2, angle)
+    c_deriv_dict = build_deriv(xi_est.size, bins)
+
     for key1, c_deriv1 in c_deriv_dict.items():
         xi = c_deriv1 @ (invcov2 @ tracer2.deltas)
         xi = 2 * (tracer1.deltas @ invcov1) @ xi
 
         xi_est[key1] += xi
 
-        c1_inv_times_c_deriv = invcov1 @ c_deriv1
+        c1_inv_times_c_deriv = c_deriv1.dot(invcov2)
 
         for key2, c_deriv2 in c_deriv_dict.items():
-            c2_inv_times_c_deriv = invcov2 @ c_deriv2.T
+            c2_inv_times_c_deriv = c_deriv2.T.dot(invcov1)
 
-            fisher[key1, key2] += c1_inv_times_c_deriv.flatten().dot(c2_inv_times_c_deriv.flatten())
+            fisher_est[key1, key2] += np.vdot(c1_inv_times_c_deriv, c2_inv_times_c_deriv)
+
+    return xi_est, fisher_est
