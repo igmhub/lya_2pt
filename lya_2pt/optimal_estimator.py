@@ -36,7 +36,7 @@ def build_xi1d(z1=1.8, z2=4., nz=50, lambda_max=2048):
 
     fid_pk_angstrom = fiducial_Pk_angstrom(kk, zz)
 
-    xi_wwindow = np.fft.irfft(fid_pk_angstrom * window_squared_angstrom(k)) / dlambda
+    xi_wwindow = np.fft.irfft(fid_pk_angstrom * window_squared_angstrom(k), n=r.size) / dlambda
     xi_wwindow = np.fft.fftshift(xi_wwindow, axes=1)
 
     return RGI((z, r), xi_wwindow, method='linear', bounds_error=False)
@@ -48,7 +48,8 @@ def build_inverse_covariance(tracer, xi1d_interp):
 
     delta_lambdas = wavelength[:, None] - wavelength[None, :]
     covariance = xi1d_interp((z_ij, delta_lambdas))
-    covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.ivar
+    # covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.ivar
+    covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.weights
 
     return np.linalg.inv(covariance)
 
@@ -111,23 +112,14 @@ def compute_raw(invcov, mask, size1, size2):
     return prod
 
 
-def compute_xi_est(tracer1, tracer2):
-    pass
-
-
-def compute_fisher(tracer1, tracer2):
-    pass
-
-
 def compute_xi_and_fisher_with_vectors(
-        tracer1, tracer2, xi1d_interp,
+        tracer1, tracer2, angle, xi1d_interp,
         xi_est, fisher_est
 ):
     invcov1 = build_inverse_covariance(tracer1, xi1d_interp)
     invcov2 = build_inverse_covariance(tracer2, xi1d_interp)
 
-    angle = None
-    bins = get_xi_bins(tracer1, tracer2, angle)
+    bins, mask = get_xi_bins(tracer1, tracer2, angle)
     c_deriv_dict = build_deriv(xi_est.size, bins)
 
     for key1, c_deriv1 in c_deriv_dict.items():
@@ -138,9 +130,11 @@ def compute_xi_and_fisher_with_vectors(
 
         c1_inv_times_c_deriv = c_deriv1.dot(invcov2)
 
-        for key2, c_deriv2 in c_deriv_dict.items():
+        for i, (key2, c_deriv2) in enumerate(c_deriv_dict.items()):
+            if key2 < key1:
+                continue
             c2_inv_times_c_deriv = c_deriv2.T.dot(invcov1)
 
-            fisher_est[key1, key2] += np.vdot(c1_inv_times_c_deriv, c2_inv_times_c_deriv)
+            fisher_est[key1, key2] += np.vdot(c1_inv_times_c_deriv, c2_inv_times_c_deriv.T)
 
     return xi_est, fisher_est
