@@ -7,22 +7,19 @@ from scipy.sparse import coo_array
 import lya_2pt.global_data as globals
 
 
-def fiducial_Pk(
-        kv, z, k0=0.009, z0=3.0, A=0.066, n=-2.685, alpha=-0.22, k1=0.053, B=3.59, beta=-0.18
-):
-    log_k_k0 = np.log(kv / k0 + 1e-10)
-    pk = A * np.power(kv / k0, 2 + n + alpha * log_k_k0) / (1 + (kv / k1)**2)
-    z_evol = np.power((1 + z) / (1 + z0), B + beta * log_k_k0)
-    return pk * z_evol * np.pi / k0  # km / s
-
-
 def fiducial_Pk_angstrom(
         kA, z, k0=0.009, z0=3.0, A=0.066, n=-2.685, alpha=-0.22, k1=0.053, B=3.59, beta=-0.18
 ):
     c_kms = speed_of_light / 1000
     A2kms = 1215.67 * (1 + z) / c_kms  # A / (km/s)
     kv = kA * A2kms
-    return fiducial_Pk(kv, z, A, k0, z0, n, alpha, k1, B, beta) * A2kms
+
+    log_k_k0 = np.log(kv / k0 + 1e-10)
+    pk = A * np.power(kv / k0, 2 + n + alpha * log_k_k0) / (1 + (kv / k1)**2)
+    z_evol = np.power((1 + z) / (1 + z0), B + beta * log_k_k0)
+    pk *= z_evol * np.pi / k0  # km / s
+
+    return pk * A2kms
 
 
 def window_squared_angstrom(k, delta_lambda=2.4, R=0.8):
