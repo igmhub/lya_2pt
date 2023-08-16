@@ -40,9 +40,9 @@ def build_xi1d(z1=1.8, z2=4., nz=50, lambda_max=2048):
     fid_pk_angstrom = fiducial_Pk_angstrom(kk, zz)
 
     xi_wwindow = np.fft.irfft(fid_pk_angstrom * window_squared_angstrom(k)) / dlambda
-    xi_wwindow = np.fft.fftshift(xi_wwindow)
+    xi_wwindow = np.fft.fftshift(xi_wwindow, axes=1)
 
-    return RGI((r, z), xi_wwindow.T, method='linear', bounds_error=False)
+    return RGI((z, r), xi_wwindow, method='linear', bounds_error=False)
 
 
 def build_inverse_covariance(tracer, xi1d_interp):
@@ -50,7 +50,7 @@ def build_inverse_covariance(tracer, xi1d_interp):
     wavelength = 10**tracer.log_lambda
 
     delta_lambdas = wavelength[:, None] - wavelength[None, :]
-    covariance = xi1d_interp((delta_lambdas, z_ij))
+    covariance = xi1d_interp((z_ij, delta_lambdas))
     covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.ivar
 
     return np.linalg.inv(covariance)
@@ -134,8 +134,8 @@ def compute_xi_and_fisher_with_vectors(
     c_deriv_dict = build_deriv(xi_est.size, bins)
 
     for key1, c_deriv1 in c_deriv_dict.items():
-        xi = c_deriv1 @ (invcov2 @ tracer2.deltas)
-        xi = 2 * (tracer1.deltas @ invcov1) @ xi
+        xi = c_deriv1.dot(invcov2 @ tracer2.deltas)
+        xi = 2 * np.dot(invcov1 @ tracer1.deltas, xi)
 
         xi_est[key1] += xi
 
