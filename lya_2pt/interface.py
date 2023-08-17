@@ -235,11 +235,23 @@ class Interface:
 
     def write_results(self):
         if self.config['compute'].getboolean('compute-correlation', False):
-            for healpix_id, result in self.xi_output.items():
-                self.output.write_cf_healpix(result, healpix_id, self.config, self.settings)
+            if self.num_cpu > 1:
+                with multiprocessing.Pool(processes=self.num_cpu) as pool:
+                    arguments = [(result, healpix_id, self.config, self.settings)
+                                 for healpix_id, result in self.xi_output.items()]
+                    _ = pool.starmap(self.output.write_cf_healpix, arguments)
+            else:
+                for healpix_id, result in self.xi_output.items():
+                    self.output.write_cf_healpix(result, healpix_id, self.config, self.settings)
 
         if self.config['compute'].getboolean('compute-distortion-matrix', False):
-            for healpix_id, result in self.dmat_output.items():
-                self.output.write_dmat_healpix(result, healpix_id, self.config, self.settings)
+            if self.num_cpu > 1:
+                with multiprocessing.Pool(processes=self.num_cpu) as pool:
+                    arguments = [(result, healpix_id, self.config, self.settings)
+                                 for healpix_id, result in self.dmat_output.items()]
+                    _ = pool.starmap(self.output.write_dmat_healpix, arguments)
+            else:
+                for healpix_id, result in self.dmat_output.items():
+                    self.output.write_dmat_healpix(result, healpix_id, self.config, self.settings)
 
         # TODO: add other modes
