@@ -67,14 +67,32 @@ def get_xi_bins(tracer1, tracer2, angle):
     ).astype(int)
     bins_rt = (rt / globals.rt_max * globals.num_bins_rt).astype(int)
     bins = (bins_rt + globals.num_bins_rt * bins_rp).astype(int)
+    bins[~mask] = -1
 
-    return bins, mask
+    return bins
 
 
-def build_deriv(xi_size, bins):
+def get_xi_bins_t(tracer1, tracer2, angle):
+    rp = np.abs(np.subtract.outer(tracer1.dist_c, tracer2.dist_c) * np.cos(angle / 2))
+    rt = np.add.outer(tracer1.dist_m, tracer2.dist_m) * np.sin(angle / 2)
+
+    mask = (rp >= globals.rp_min) & (rp < globals.rp_max) & (rt < globals.rt_max)
+
+    bins_rp = (
+        (rp - globals.rp_min) / (globals.rp_max - globals.rp_min) * globals.num_bins_rp
+    ).astype(int)
+    bins_rt = (rt / globals.rt_max * globals.num_bins_rt).astype(int)
+    bins = (bins_rp + globals.num_bins_rp * bins_rt).astype(int)
+    bins[~mask] = -1
+
+    return bins
+
+
+def build_deriv(bins):
     c_deriv_dict = {}
+
     for bin_index in np.unique(bins):
-        if bin_index >= xi_size:
+        if bin_index == -1:
             continue
 
         row, col = np.where(bins == bin_index)
@@ -122,8 +140,8 @@ def compute_xi_and_fisher_pair(
     invcov1 = build_inverse_covariance(tracer1, xi1d_interp)
     invcov2 = build_inverse_covariance(tracer2, xi1d_interp)
 
-    bins, mask = get_xi_bins(tracer1, tracer2, angle)
-    c_deriv_dict = build_deriv(xi_est.size, bins)
+    bins = get_xi_bins_t(tracer1, tracer2, angle)
+    c_deriv_dict = build_deriv(bins)
 
     for key1, c_deriv1 in c_deriv_dict.items():
         xi = c_deriv1.dot(invcov2 @ tracer2.deltas)
@@ -133,13 +151,12 @@ def compute_xi_and_fisher_pair(
 
         c1_inv_times_c_deriv = c_deriv1.dot(invcov2)
 
-        for i, (key2, c_deriv2) in enumerate(c_deriv_dict.items()):
+        for key2, c_deriv2 in c_deriv_dict.items():
             if key2 < key1:
                 continue
-            # c2_inv_times_c_deriv = c_deriv2.T.dot(invcov1)
-            c2_inv_times_c_deriv = invcov1 @ c_deriv2
+            c2_inv_times_c_deriv = c_deriv2.T.dot(invcov1)
 
-            fisher_est[key1, key2] += np.vdot(c1_inv_times_c_deriv, c2_inv_times_c_deriv)
+            fisher_est[key1, key2] += np.vdot(c1_inv_times_c_deriv, c2_inv_times_c_deriv.T)
 
     return xi_est, fisher_est
 
