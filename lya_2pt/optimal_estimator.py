@@ -103,7 +103,8 @@ def build_deriv(bins):
 
         c_deriv_list.append((bin_index, M))
 
-    c_deriv_list.sort()
+    # np.unique returns sorted
+    # c_deriv_list.sort()
 
     return c_deriv_list
 
