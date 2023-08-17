@@ -97,13 +97,10 @@ def build_deriv(bins):
     bins_flat = bins_flat[idx_sort]
 
     unique_bins, unique_indices = np.unique(bins_flat, return_index=True)
+    split_bins = np.split(idx_sort, unique_indices[1:])
     if unique_bins[0] == -1:
-        unique_indices = unique_indices[2:]
         unique_bins = unique_bins[1:]
-    else:
-        unique_indices = unique_indices[1:]
-
-    split_bins = np.split(idx_sort.argsort(), unique_indices)
+        split_bins = split_bins[1:]
 
     for bin_index, idx in zip(unique_bins, split_bins):
         M = coo_array(
