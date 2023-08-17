@@ -72,7 +72,7 @@ class Tracer2Reader:
         Fiducial cosmology used to go from angles and redshift to distances
         """
         input_directory = find_path(config.get('input-dir'))
-        files = np.array(list(input_directory.glob('*fits*')))
+        files = np.array(list(input_directory.glob('*.fits*')))
 
         neighbour_files = [input_directory / f'delta-{healpix_id}.fits.gz'
                            for healpix_id in healpix_neighbours]

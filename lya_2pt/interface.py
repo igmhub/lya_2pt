@@ -110,7 +110,7 @@ class Interface:
 
         # Find files
         input_directory = find_path(config["tracer1"].get("input-dir"))
-        self.files = np.array(list(input_directory.glob('*fits*')))
+        self.files = np.array(list(input_directory.glob('*.fits*')))
 
         self.output = Output(config["output"])
         self.export = Export(
@@ -210,12 +210,12 @@ class Interface:
             if self.num_cpu > 1:
                 context = multiprocessing.get_context('fork')
                 with context.Pool(processes=self.num_cpu) as pool:
-                    results = pool.map(compute_xi, self.healpix_ids)
+                    results = pool.map(compute_xi, healpix_ids)
 
                 for hp_id, res in results:
                     self.xi_output[hp_id] = res
             else:
-                for healpix_id in self.healpix_ids:
+                for healpix_id in healpix_ids:
                     self.xi_output[healpix_id] = compute_xi(healpix_id)[1]
 
         self.dmat_output = {}
@@ -224,12 +224,12 @@ class Interface:
             if self.num_cpu > 1:
                 context = multiprocessing.get_context('fork')
                 with context.Pool(processes=self.num_cpu) as pool:
-                    results = pool.map(compute_dmat, self.healpix_ids)
+                    results = pool.map(compute_dmat, healpix_ids)
 
                 for hp_id, res in results:
                     self.dmat_output[hp_id] = res
             else:
-                for healpix_id in self.healpix_ids:
+                for healpix_id in healpix_ids:
                     self.dmat_output[healpix_id] = compute_dmat(healpix_id)[1]
 
         self.optimal_xi_output = {}
@@ -238,12 +238,12 @@ class Interface:
             if self.num_cpu > 1:
                 context = multiprocessing.get_context('fork')
                 with context.Pool(processes=self.num_cpu) as pool:
-                    results = pool.map(compute_xi_and_fisher, self.healpix_ids)
+                    results = pool.map(compute_xi_and_fisher, healpix_ids)
 
                 for hp_id, res in results:
                     self.optimal_xi_output[hp_id] = res
             else:
-                for healpix_id in self.healpix_ids:
+                for healpix_id in healpix_ids:
                     self.optimal_xi_output[healpix_id] = compute_xi_and_fisher(healpix_id)[1]
 
         # TODO: add other computations
@@ -257,4 +257,7 @@ class Interface:
             for healpix_id, result in self.dmat_output.items():
                 self.output.write_dmat_healpix(result, healpix_id, self.config, self.settings)
 
+        if self.config['compute'].getboolean('compute-optimal-correlation', False):
+            for healpix_id, result in self.optimal_xi_output.items():
+                self.output.write_optimal_cf_healpix(result, healpix_id, self.config, self.settings)
         # TODO: add other modes

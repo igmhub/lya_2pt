@@ -1,4 +1,4 @@
-ACCEPTED_BLINDING_STRATEGIES = ["none", "desi_m2", "desi_y1", "desi_y3"]
+ACCEPTED_BLINDING_STRATEGIES = ["none", "desi_m2", "desi_y1", "desi_y3", "corr_yshift"]
 
 ABSORBER_IGM = {
     "Halpha"      : 6562.8,
