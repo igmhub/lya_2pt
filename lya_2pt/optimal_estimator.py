@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 from numba import njit
 from scipy.constants import speed_of_light
@@ -5,6 +7,7 @@ from scipy.interpolate import RegularGridInterpolator as RGI
 from scipy.sparse import coo_array
 
 import lya_2pt.global_data as globals
+from lya_2pt.tracer_utils import get_angle
 
 
 def fiducial_Pk_angstrom(
@@ -112,7 +115,7 @@ def compute_raw(invcov, mask, size1, size2):
     return prod
 
 
-def compute_xi_and_fisher_with_vectors(
+def compute_xi_and_fisher_pair(
         tracer1, tracer2, angle, xi1d_interp,
         xi_est, fisher_est
 ):
@@ -133,8 +136,67 @@ def compute_xi_and_fisher_with_vectors(
         for i, (key2, c_deriv2) in enumerate(c_deriv_dict.items()):
             if key2 < key1:
                 continue
-            c2_inv_times_c_deriv = c_deriv2.T.dot(invcov1)
+            # c2_inv_times_c_deriv = c_deriv2.T.dot(invcov1)
+            c2_inv_times_c_deriv = invcov1 @ c_deriv2
 
-            fisher_est[key1, key2] += np.vdot(c1_inv_times_c_deriv, c2_inv_times_c_deriv.T)
+            fisher_est[key1, key2] += np.vdot(c1_inv_times_c_deriv, c2_inv_times_c_deriv)
 
     return xi_est, fisher_est
+
+
+def compute_xi_and_fisher(healpix_id):
+    """Compute correlation function
+
+    Parameters
+    ----------
+    tracers1 : array of lya_2pt.tracer.Tracer
+        First set of tracers
+    tracers2 : array of lya_2pt.tracer.Tracer
+        Second set of tracers
+    config : ConfigParser
+        Internal configuration object containing the settings section
+    auto_flag : bool, optional
+        Flag for auto-correlation, by default False
+
+    Returns
+    -------
+    (array, array, array, array, array, array)
+        correlation function, sum of weights in each bin, line-of-sight separation grid,
+        transverse separation grid, redshift grid, number of pixel pairs in each bin
+    """
+    hp_neighs = [other_hp for other_hp in globals.healpix_neighbours[healpix_id]
+                 if other_hp in globals.tracers2]
+    hp_neighs += [healpix_id]
+
+    total_size = int(globals.num_bins_rp * globals.num_bins_rt)
+
+    xi_est = np.zeros(total_size)
+    fisher_est = np.zeros((total_size, total_size))
+    xi1d_interp = build_xi1d()
+
+    for tracer1 in globals.tracers1[healpix_id]:
+        with globals.lock:
+            xicounter = round(globals.counter.value * 100. / globals.num_tracers, 2)
+            if (globals.counter.value % 1 == 0):
+                print(("computing xi: {}%").format(xicounter))
+                sys.stdout.flush()
+            globals.counter.value += 1
+
+        potential_neighbours = [tracer2 for hp in hp_neighs for tracer2 in globals.tracers2[hp]]
+
+        neighbours = tracer1.get_neighbours(
+            potential_neighbours, globals.auto_flag,
+            globals.z_min, globals.z_max,
+            globals.rp_max, globals.rt_max
+            )
+        print(len(neighbours))
+
+        for tracer2 in neighbours:
+            angle = get_angle(
+                tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra, tracer1.dec,
+                tracer2.x_cart, tracer2.y_cart, tracer2.z_cart, tracer2.ra, tracer2.dec
+                )
+
+            compute_xi_and_fisher_pair(tracer1, tracer2, angle, xi1d_interp, xi_est, fisher_est)
+
+    return healpix_id, (xi_est, fisher_est)

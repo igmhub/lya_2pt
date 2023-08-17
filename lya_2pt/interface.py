@@ -6,6 +6,7 @@ import tqdm
 import lya_2pt.global_data as globals
 from lya_2pt.correlation import compute_xi
 from lya_2pt.distortion import compute_dmat
+from lya_2pt.optimal_estimator import compute_xi_and_fisher
 from lya_2pt.cosmo import Cosmology
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
 from lya_2pt.tracer2_reader import Tracer2Reader
@@ -230,6 +231,20 @@ class Interface:
             else:
                 for healpix_id in self.healpix_ids:
                     self.dmat_output[healpix_id] = compute_dmat(healpix_id)[1]
+
+        self.optimal_xi_output = {}
+        if self.config['compute'].getboolean('compute-optimal-correlation', False):
+            self.reset_global_counter()
+            if self.num_cpu > 1:
+                context = multiprocessing.get_context('fork')
+                with context.Pool(processes=self.num_cpu) as pool:
+                    results = pool.map(compute_xi_and_fisher, self.healpix_ids)
+
+                for hp_id, res in results:
+                    self.optimal_xi_output[hp_id] = res
+            else:
+                for healpix_id in self.healpix_ids:
+                    self.optimal_xi_output[healpix_id] = compute_xi_and_fisher(healpix_id)[1]
 
         # TODO: add other computations
 
