@@ -92,11 +92,22 @@ def build_deriv(bins):
     """Return a list of tuples: (bin_index, C_deriv), sorted by bin_index"""
     c_deriv_list = []
 
-    for bin_index in np.unique(bins):
+    unique_bins = np.unique(bins)
+    row_map = {_: [] for _ in unique_bins}
+    col_map = {_: [] for _ in unique_bins}
+
+    for (i, j), bin_index in np.ndenumerate(bins):
         if bin_index == -1:
             continue
 
-        row, col = np.where(bins == bin_index)
+        row_map[bin_index].append(i)
+        col_map[bin_index].append(j)
+
+    for bin_index in unique_bins:
+        if bin_index == -1:
+            continue
+
+        row, col = row_map[bin_index], col_map[bin_index]
         M = coo_array(
             (np.ones(row.size), (row, col)), shape=bins.shape
         ).tocsr()
