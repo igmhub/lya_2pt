@@ -90,9 +90,8 @@ def get_xi_bins_t(tracer1, tracer2, angle):
 
 def build_deriv(bins):
     """Return a list of tuples: (bin_index, C_deriv), sorted by bin_index"""
-    c_deriv_list = []
     nrows, ncols = bins.shape
-    bins_flat = bins.flatten()
+    bins_flat = bins.ravel()
     idx_sort = bins_flat.argsort()  # j + i * ncols
     bins_flat = bins_flat[idx_sort]
 
@@ -102,15 +101,10 @@ def build_deriv(bins):
         unique_bins = unique_bins[1:]
         split_bins = split_bins[1:]
 
-    for bin_index, idx in zip(unique_bins, split_bins):
-        M = coo_array(
-            (np.ones(idx.size), divmod(idx, ncols)), shape=bins.shape
-        ).tocsr()
-
-        c_deriv_list.append((bin_index, M))
-
-    # np.unique returns sorted
-    # c_deriv_list.sort()
+    c_deriv_list = [
+        (bin_index, coo_array((np.ones(idx.size), divmod(idx, ncols)), shape=bins.shape).tocsr())
+        for bin_index, idx in zip(unique_bins, split_bins)
+    ]
 
     return c_deriv_list
 
