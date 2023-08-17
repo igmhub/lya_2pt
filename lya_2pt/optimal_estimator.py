@@ -89,19 +89,23 @@ def get_xi_bins_t(tracer1, tracer2, angle):
 
 
 def build_deriv(bins):
-    c_deriv_dict = {}
+    """Return a list of tuples: (bin_index, C_deriv), sorted by bin_index"""
+    c_deriv_list = []
 
     for bin_index in np.unique(bins):
         if bin_index == -1:
             continue
 
         row, col = np.where(bins == bin_index)
-
-        c_deriv_dict[bin_index] = coo_array(
+        M = coo_array(
             (np.ones(row.size), (row, col)), shape=bins.shape
         ).tocsr()
 
-    return c_deriv_dict
+        c_deriv_list.append((bin_index, M))
+
+    c_deriv_list.sort()
+
+    return c_deriv_list
 
 
 @njit
@@ -141,22 +145,20 @@ def compute_xi_and_fisher_pair(
     invcov2 = build_inverse_covariance(tracer2, xi1d_interp)
 
     bins = get_xi_bins_t(tracer1, tracer2, angle)
-    c_deriv_dict = build_deriv(bins)
+    c_deriv_list = build_deriv(bins)
 
-    for key1, c_deriv1 in c_deriv_dict.items():
+    for i, (bin1, c_deriv1) in enumerate(c_deriv_list):
         xi = c_deriv1.dot(invcov2 @ tracer2.deltas)
         xi = 2 * np.dot(invcov1 @ tracer1.deltas, xi)
 
-        xi_est[key1] += xi
+        xi_est[bin1] += xi
 
         c1_inv_times_c_deriv = c_deriv1.dot(invcov2)
 
-        for key2, c_deriv2 in c_deriv_dict.items():
-            if key2 < key1:
-                continue
+        for bin2, c_deriv2 in c_deriv_list[i:]:
             c2_inv_times_c_deriv = c_deriv2.T.dot(invcov1)
 
-            fisher_est[key1, key2] += np.vdot(c1_inv_times_c_deriv, c2_inv_times_c_deriv.T)
+            fisher_est[bin1, bin2] += np.vdot(c1_inv_times_c_deriv, c2_inv_times_c_deriv.T)
 
     return xi_est, fisher_est
 
