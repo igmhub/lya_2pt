@@ -51,8 +51,8 @@ def build_inverse_covariance(tracer, xi1d_interp):
 
     delta_lambdas = wavelength[:, None] - wavelength[None, :]
     covariance = xi1d_interp((z_ij, delta_lambdas))
-    # covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.ivar
-    covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.weights
+    covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.ivar
+    # covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.weights
 
     return np.linalg.inv(covariance)
 
@@ -148,18 +148,17 @@ def compute_xi_and_fisher_pair(
     bins = get_xi_bins_t(tracer1, tracer2, angle)
     c_deriv_list = build_deriv(bins)
 
+    invc2_x_c_deriv_list = [(bin2, c_deriv2.T.dot(invcov1).T) for bin2, c_deriv2 in c_deriv_list]
+
     for i, (bin1, c_deriv1) in enumerate(c_deriv_list):
         xi = c_deriv1.dot(invcov2 @ tracer2.deltas)
         xi = 2 * np.dot(invcov1 @ tracer1.deltas, xi)
 
         xi_est[bin1] += xi
 
-        c1_inv_times_c_deriv = c_deriv1.dot(invcov2)
-
-        for bin2, c_deriv2 in c_deriv_list[i:]:
-            c2_inv_times_c_deriv = c_deriv2.T.dot(invcov1)
-
-            fisher_est[bin1, bin2] += np.vdot(c1_inv_times_c_deriv, c2_inv_times_c_deriv.T)
+        invc1_x_c_deriv = c_deriv1.dot(invcov2)
+        for bin2, invc2_x_c_deriv in invc2_x_c_deriv_list[i:]:
+            fisher_est[bin1, bin2] += np.vdot(invc1_x_c_deriv, invc2_x_c_deriv)
 
     return xi_est, fisher_est
 
@@ -197,7 +196,7 @@ def compute_xi_and_fisher(healpix_id):
     for tracer1 in globals.tracers1[healpix_id]:
         with globals.lock:
             xicounter = round(globals.counter.value * 100. / globals.num_tracers, 2)
-            if (globals.counter.value % 1 == 0):
+            if (globals.counter.value % 10 == 0):
                 print(("computing xi: {}%").format(xicounter))
                 sys.stdout.flush()
             globals.counter.value += 1
@@ -209,7 +208,6 @@ def compute_xi_and_fisher(healpix_id):
             globals.z_min, globals.z_max,
             globals.rp_max, globals.rt_max
             )
-        print(len(neighbours))
 
         for tracer2 in neighbours:
             angle = get_angle(

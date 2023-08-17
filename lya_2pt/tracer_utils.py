@@ -80,7 +80,7 @@ def get_angle(x1, y1, z1, ra1, dec1, x2, y2, z2, ra2, dec2):
 
 
 # @njit()
-def rebin(log_lambda, deltas, weights, rebin_factor, dwave):
+def rebin(log_lambda, deltas, weights, ivar, rebin_factor, dwave, use_ivar=False):
     """Rebin a Tracer by combining N pixels together
 
     Arguments
@@ -120,14 +120,21 @@ def rebin(log_lambda, deltas, weights, rebin_factor, dwave):
     edges = np.arange(num_bins) * dwave * rebin_factor + start
 
     new_indx = np.searchsorted(edges, wave)
-    binned_delta = np.bincount(new_indx, weights=deltas*weights, minlength=edges.size+1)[1:-1]
     binned_weight = np.bincount(new_indx, weights=weights, minlength=edges.size+1)[1:-1]
+    binned_ivar = np.bincount(new_indx, weights=ivar, minlength=edges.size+1)[1:-1]
 
-    mask = binned_weight != 0
-    binned_delta[mask] /= binned_weight[mask]
+    if use_ivar:
+        binned_delta = np.bincount(new_indx, weights=deltas*ivar, minlength=edges.size+1)[1:-1]
+        mask = binned_ivar != 0
+        binned_delta[mask] /= binned_ivar[mask]
+    else:
+        binned_delta = np.bincount(new_indx, weights=deltas*weights, minlength=edges.size+1)[1:-1]
+        mask = binned_weight != 0
+        binned_delta[mask] /= binned_weight[mask]
+
     new_wave = (edges[1:] + edges[:-1]) / 2
 
-    return np.log10(new_wave[mask]), binned_delta[mask], binned_weight[mask]
+    return np.log10(new_wave[mask]), binned_delta[mask], binned_weight[mask], binned_ivar[mask]
 
 
 @njit()

@@ -10,7 +10,7 @@ from lya_2pt.read_io import read_from_image, read_from_hdu
 accepted_options = [
     "input-dir", "tracer-type", "absorption-line", "project-deltas",
     "projection-order", "use-old-projection", "rebin",
-    "redshift-evolution", "reference-redshift"
+    "redshift-evolution", "reference-redshift", "use-ivar",
 ]
 
 defaults = {
@@ -22,6 +22,7 @@ defaults = {
     "rebin": 1,
     "redshift-evolution": 2.9,
     "reference-redshift": 2.25,
+    "use-ivar": False,
 }
 
 
@@ -110,15 +111,17 @@ class ForestHealpixReader:
 
         # rebin
         rebin_factor = reader_config.getint("rebin")
+        use_ivar = reader_config.getboolean("use-ivar")
         if rebin_factor > 1:
             for tracer in self.tracers:
-                tracer.rebin(rebin_factor, self.dwave, absorption_line)
+                tracer.rebin(rebin_factor, self.dwave, absorption_line, use_ivar=use_ivar)
 
         # Apply redshift evolution correction
-        reference_z = reader_config.getfloat("reference-redshift")
-        redshift_evol = reader_config.getfloat("redshift-evolution")
-        for tracer in self.tracers:
-            tracer.apply_z_evol_to_weights(redshift_evol, reference_z)
+        if not use_ivar:
+            reference_z = reader_config.getfloat("reference-redshift")
+            redshift_evol = reader_config.getfloat("redshift-evolution")
+            for tracer in self.tracers:
+                tracer.apply_z_evol_to_weights(redshift_evol, reference_z)
 
         # project
         if reader_config.getboolean("project-deltas"):

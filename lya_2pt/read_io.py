@@ -35,7 +35,13 @@ def read_from_image(hdul, absorption_line, healpix_id, need_distortion=False, pr
     dec_array = hdul["METADATA"]["DEC"][:]
     dwave = hdul["LAMBDA"].read_header()['DELTA_LAMBDA']
 
-    deltas_array = hdul["DELTA"].read().astype(float)
+    accepted_deltas = set(["DELTA", "DELTA_BLIND"])
+    key = accepted_deltas.intersection([hdul[3].get_extname()])
+    if not key:
+        raise Exception("Delta table not found")
+    key = key.pop()
+    deltas_array = hdul[key].read().astype(float)
+
     weights_array = hdul["WEIGHT"].read().astype(float)
     wave_solution = None
     if "LOGLAM" in hdul:
@@ -51,12 +57,16 @@ def read_from_image(hdul, absorption_line, healpix_id, need_distortion=False, pr
         raise ReaderException(
             "Did not find LOGLAM or LAMBDA in delta file")
 
+    ivar_array = np.zeros_like(deltas_array)
+    if "IVAR" in hdul:
+        ivar_array = hdul['IVAR'].read().astype(float)
+
     tracers = np.empty(los_id_array.shape, dtype=Tracer)
     for i, (los_id, ra, dec) in enumerate(zip(los_id_array, ra_array, dec_array)):
         mask = ~np.isnan(deltas_array[i])
         tracers[i] = Tracer(
             healpix_id, los_id, ra, dec, projection_order, deltas_array[i][mask],
-            weights_array[i][mask], log_lambda[mask], z[mask], need_distortion
+            weights_array[i][mask], ivar_array[i][mask], log_lambda[mask], z[mask], need_distortion
             )
 
     return tracers, wave_solution, dwave
@@ -98,7 +108,13 @@ def read_from_hdu(hdul, absorption_line, healpix_id, need_distortion=False, proj
         ra = header['RA']
         dec = header['DEC']
 
-        delta = hdu["DELTA"][:].astype(float)
+        accepted_deltas = set(["DELTA", "DELTA_BLIND"])
+        key = accepted_deltas.intersection(hdu.get_colnames())
+        if not key:
+            raise Exception("Delta column not found")
+        key = key.pop()
+        delta = hdu[key][:].astype(float)
+
         weights = hdu["WEIGHT"][:].astype(float)
         if 'LOGLAM' in hdu.get_colnames():
             log_lambda = hdu['LOGLAM'][:].astype(float)
@@ -113,9 +129,15 @@ def read_from_hdu(hdul, absorption_line, healpix_id, need_distortion=False, proj
             raise ReaderException(
                 "Did not find LOGLAM or LAMBDA in delta file")
 
+        mask = weights > 0
+        ivar = np.zeros_like(delta)
+        if 'IVAR' in hdu.get_colnames():
+            ivar = hdu['IVAR'][:].astype(float)
+            mask &= ivar > 0
+
         tracers.append(Tracer(
-            healpix_id, los_id, ra, dec, projection_order, delta, weights,
-            log_lambda, z, need_distortion
+            healpix_id, los_id, ra, dec, projection_order, delta[mask], weights[mask], ivar[mask],
+            log_lambda[mask], z[mask], need_distortion
             ))
 
     return np.array(tracers), wave_solution, dwave

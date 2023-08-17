@@ -75,8 +75,8 @@ class Tracer:
     project():
         Apply projection matrix to deltas
     """
-    def __init__(self, healpix_id, los_id, ra, dec, order,
-                 deltas, weights, log_lambda, z, need_distortion=False):
+    def __init__(self, healpix_id, los_id, ra, dec, order, deltas,
+                 weights, ivar, log_lambda, z, need_distortion=False):
         """Initializes class instance
 
         Parameters
@@ -116,6 +116,7 @@ class Tracer:
 
         self.deltas = deltas.copy()
         self.weights = weights.copy()
+        self.ivar = ivar.copy()
         self.log_lambda = log_lambda.copy()
         self.z = z.copy()
 
@@ -244,7 +245,7 @@ class Tracer:
 
         return neighbours
 
-    def rebin(self, rebin_factor, dwave, absorption_line):
+    def rebin(self, rebin_factor, dwave, absorption_line, use_ivar=False):
         """Rebin the forest into coarser pixels
 
         Parameters
@@ -256,8 +257,8 @@ class Tracer:
         absorption_line : string
             Name of main absorption line
         """
-        log_lambda, deltas, weights = rebin(self.log_lambda, self.deltas, self.weights,
-                                            rebin_factor, dwave)
+        log_lambda, deltas, weights, ivar = rebin(self.log_lambda, self.deltas, self.weights,
+                                                  self.ivar, rebin_factor, dwave, use_ivar=use_ivar)
 
         self.log_lambda = log_lambda
         self.deltas = deltas
