@@ -91,25 +91,23 @@ def get_xi_bins_t(tracer1, tracer2, angle):
 def build_deriv(bins):
     """Return a list of tuples: (bin_index, C_deriv), sorted by bin_index"""
     c_deriv_list = []
+    nrows, ncols = bins.shape
+    bins_flat = bins.flatten()
+    idx_sort = bins_flat.argsort()  # j + i * ncols
+    bins_flat = bins_flat[idx_sort]
 
-    unique_bins = np.unique(bins)
-    row_map = {_: [] for _ in unique_bins}
-    col_map = {_: [] for _ in unique_bins}
+    unique_bins, unique_indices = np.unique(bins_flat, return_index=True)
+    if unique_bins[0] == -1:
+        unique_indices = unique_indices[2:]
+        unique_bins = unique_bins[1:]
+    else:
+        unique_indices = unique_indices[1:]
 
-    for (i, j), bin_index in np.ndenumerate(bins):
-        if bin_index == -1:
-            continue
+    split_bins = np.split(idx_sort.argsort(), unique_indices)
 
-        row_map[bin_index].append(i)
-        col_map[bin_index].append(j)
-
-    for bin_index in unique_bins:
-        if bin_index == -1:
-            continue
-
-        row, col = row_map[bin_index], col_map[bin_index]
+    for bin_index, idx in zip(unique_bins, split_bins):
         M = coo_array(
-            (np.ones(row.size), (row, col)), shape=bins.shape
+            (np.ones(idx.size), divmod(idx, ncols)), shape=bins.shape
         ).tocsr()
 
         c_deriv_list.append((bin_index, M))
