@@ -263,6 +263,7 @@ class Tracer:
         self.log_lambda = log_lambda
         self.deltas = deltas
         self.weights = weights
+        self.ivar = ivar
         self.z = 10**log_lambda/ABSORBER_IGM.get(absorption_line) - 1.0
 
         if self.need_distortion:
