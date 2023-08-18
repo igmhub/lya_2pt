@@ -193,7 +193,7 @@ class Output:
         filename = self.healpix_dir / "optimal-correlation-all.fits.gz"
 
         # save data
-        results = fitsio.FITS(filename, 'rw', clobber=True)
+        output_fits = fitsio.FITS(filename, 'rw', clobber=True)
         header = self.get_cf_header(settings, global_config)
 
         correlation_name = "CORRELATION"
@@ -201,7 +201,7 @@ class Output:
             correlation_name += "_BLIND"
 
         for healpix_id, result in output.items():
-            results.write(
+            output_fits.write(
                 [result[0], result[1]],
                 names=[correlation_name, "FISHER_MATRIX"],
                 comment=['unnormalized correlation', 'Fisher matrix'],
@@ -209,7 +209,7 @@ class Output:
                 extname=str(healpix_id)
             )
 
-        results.close()
+        output_fits.close()
 
     def get_cf_header(self, settings, global_config):
         header = [{

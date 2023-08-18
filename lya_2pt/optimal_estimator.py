@@ -94,7 +94,7 @@ def build_deriv(bins):
         unique_bins = unique_bins[1:]
 
     def my_coo_array(idx):
-        return coo_array((np.ones(idx[0].size, idx)), shape=bins.shape).tocsr()
+        return coo_array((np.ones(idx[0].size), idx), shape=bins.shape).tocsr()
 
     idx_list = [np.nonzero(bins == bin_index) for bin_index in unique_bins]
     c_deriv_list = [my_coo_array(idx) for idx in idx_list]
@@ -178,7 +178,7 @@ def compute_xi_and_fisher_pair(
             zip(unique_bins, c_deriv_x_invcov2_list, rminmax_list)
     ):
         s_list = [
-            np.s_[max(rmin1, rmin2):min(rmax1, rmin2)]
+            np.s_[max(rmin1, rmin2):min(rmax1, rmax2)]
             for rmin2, rmax2 in rminmax_list[i:]
         ]
 

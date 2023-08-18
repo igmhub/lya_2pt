@@ -270,6 +270,11 @@ class Interface:
         self.optimal_xi_output = {}
         if self.config['compute'].getboolean('compute-optimal-correlation', False):
             self.reset_global_counter()
+
+            total_size = int(globals.num_bins_rp * globals.num_bins_rt)
+            xi_est = np.zeros(total_size)
+            fisher_est = np.zeros((total_size, total_size))
+
             if self.num_cpu > 1:
                 context = multiprocessing.get_context('fork')
                 with context.Pool(processes=self.num_cpu) as pool:
@@ -280,9 +285,16 @@ class Interface:
 
                 for hp_id, res in results:
                     self.optimal_xi_output[hp_id] = res
+                    xi_est += res[0]
+                    fisher_est += res[1]
             else:
                 for healpix_id in healpix_ids:
                     self.optimal_xi_output[healpix_id] = compute_xi_and_fisher(healpix_id)[1]
+
+                    xi_est += self.optimal_xi_output[healpix_id][0]
+                    fisher_est += self.optimal_xi_output[healpix_id][1]
+
+            # xiall = np.vstack([v for (v, _) in self.optimal_xi_output.values()]).sum(axis=0)
 
         # TODO: add other computations
 
