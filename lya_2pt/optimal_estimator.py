@@ -1,5 +1,3 @@
-import sys
-
 import numpy as np
 from numba import njit
 from scipy.constants import speed_of_light
@@ -8,6 +6,35 @@ from scipy.sparse import coo_array
 
 import lya_2pt.global_data as globals
 from lya_2pt.tracer_utils import get_angle
+
+
+@njit
+def compute_raw(invcov, mask, size1, size2):
+    """Multiply inverse covariance by the derivative matrix without computing the
+    derivative matrix.
+    """
+    prod = np.zeros((size1, size2))
+    mask_size = len(mask[1])
+
+    start = 0
+    end = 0
+    for i, col_idx in enumerate(mask[1]):
+        if i == (mask_size - 1):
+            row_idx = mask[0][start:mask_size]
+            prod[:, col_idx] += np.sum(invcov[:, row_idx], axis=1)
+
+            start = i + 1
+            end = i + 1
+        elif mask[1][i + 1] != col_idx:
+            row_idx = mask[0][start:i + 1]
+            prod[:, col_idx] += np.sum(invcov[:, row_idx], axis=1)
+
+            start = i + 1
+            end = i + 1
+        else:
+            end += 1
+
+    return prod
 
 
 def fiducial_Pk_angstrom(
@@ -89,25 +116,7 @@ def get_xi_bins_t(tracer1, tracer2, angle):
 
 
 def build_deriv(bins):
-    unique_bins = np.unique(bins)
-    if unique_bins[0] == -1:
-        unique_bins = unique_bins[1:]
-
-    def my_coo_array(idx):
-        return coo_array((np.ones(idx[0].size), idx), shape=bins.shape).tocsr()
-
-    idx_list = [np.nonzero(bins == bin_index) for bin_index in unique_bins]
-    c_deriv_list = [my_coo_array(idx) for idx in idx_list]
-    rminmax_list = [(idx[0].min(), idx[0].max() + 1) for idx in idx_list]
-
-    return unique_bins, c_deriv_list, rminmax_list
-
-
-def build_deriv_bysort(bins):
-    """ Build list of derivative matrices by sorting. Performance depends on number of bins and
-    the shape of bins.
-    Return a list of tuples: (bin_index, C_deriv), sorted by bin_index
-    """
+    """Return a list of tuples: (bin_index, C_deriv), sorted by bin_index"""
     nrows, ncols = bins.shape
     bins_flat = bins.ravel()
     idx_sort = bins_flat.argsort()  # j + i * ncols
@@ -127,35 +136,6 @@ def build_deriv_bysort(bins):
     return c_deriv_list
 
 
-@njit
-def compute_raw(invcov, mask, size1, size2):
-    """Multiply inverse covariance by the derivative matrix without computing the
-    derivative matrix.
-    """
-    prod = np.zeros((size1, size2))
-    mask_size = len(mask[1])
-
-    start = 0
-    end = 0
-    for i, col_idx in enumerate(mask[1]):
-        if i == (mask_size - 1):
-            row_idx = mask[0][start:mask_size]
-            prod[:, col_idx] += np.sum(invcov[:, row_idx], axis=1)
-
-            start = i + 1
-            end = i + 1
-        elif mask[1][i + 1] != col_idx:
-            row_idx = mask[0][start:i + 1]
-            prod[:, col_idx] += np.sum(invcov[:, row_idx], axis=1)
-
-            start = i + 1
-            end = i + 1
-        else:
-            end += 1
-
-    return prod
-
-
 def compute_xi_and_fisher_pair(
         tracer1, tracer2, angle, xi1d_interp,
         xi_est, fisher_est
@@ -164,28 +144,19 @@ def compute_xi_and_fisher_pair(
     invcov2 = build_inverse_covariance(tracer2, xi1d_interp)
 
     bins = get_xi_bins_t(tracer1, tracer2, angle)
-    unique_bins, c_deriv_list, rminmax_list = build_deriv(bins)
+    c_deriv_list = build_deriv(bins)
 
-    y1 = invcov1 @ tracer1.deltas
-    y2 = invcov2 @ tracer2.deltas
-    xi = np.array([2 * np.dot(y1, c_deriv.dot(y2)) for c_deriv in c_deriv_list])
-    xi_est[unique_bins] += xi
+    invc2_x_c_deriv_list = [(bin2, c_deriv2.T.dot(invcov1).T) for bin2, c_deriv2 in c_deriv_list]
 
-    invcov1_x_c_deriv_list = [c_deriv.T.dot(invcov1).T for c_deriv in c_deriv_list]
-    c_deriv_x_invcov2_list = [c_deriv.dot(invcov2) for c_deriv in c_deriv_list]
+    for i, (bin1, c_deriv1) in enumerate(c_deriv_list):
+        xi = c_deriv1.dot(invcov2 @ tracer2.deltas)
+        xi = 2 * np.dot(invcov1 @ tracer1.deltas, xi)
 
-    for i, (bin1, c_deriv_x_invcov2, (rmin1, rmax1)) in enumerate(
-            zip(unique_bins, c_deriv_x_invcov2_list, rminmax_list)
-    ):
-        s_list = [
-            np.s_[max(rmin1, rmin2):min(rmax1, rmax2)]
-            for rmin2, rmax2 in rminmax_list[i:]
-        ]
+        xi_est[bin1] += xi
 
-        fisher_est[bin1, unique_bins[i:]] += np.array([
-            np.vdot(c_deriv_x_invcov2[s], invcov1_x_c_deriv[s])
-            for s, invcov1_x_c_deriv in zip(s_list, invcov1_x_c_deriv_list[i:])
-        ])
+        invc1_x_c_deriv = c_deriv1.dot(invcov2)
+        for bin2, invc2_x_c_deriv in invc2_x_c_deriv_list[i:]:
+            fisher_est[bin1, bin2] += np.vdot(invc1_x_c_deriv, invc2_x_c_deriv)
 
     return xi_est, fisher_est
 
@@ -221,13 +192,6 @@ def compute_xi_and_fisher(healpix_id):
     xi1d_interp = build_xi1d()
 
     for tracer1 in globals.tracers1[healpix_id]:
-        # with globals.lock:
-        #     xicounter = round(globals.counter.value * 100. / globals.num_tracers, 2)
-        #     if (globals.counter.value % 10 == 0):
-        #         print(("computing xi: {}%").format(xicounter))
-        #         sys.stdout.flush()
-        #     globals.counter.value += 1
-
         potential_neighbours = [tracer2 for hp in hp_neighs for tracer2 in globals.tracers2[hp]]
 
         neighbours = tracer1.get_neighbours(
@@ -236,7 +200,8 @@ def compute_xi_and_fisher(healpix_id):
             globals.rp_max, globals.rt_max
             )
 
-        for tracer2 in neighbours:
+        w = np.random.rand(neighbours.size) > globals.rejection_fraction
+        for tracer2 in neighbours[w]:
             angle = get_angle(
                 tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra, tracer1.dec,
                 tracer2.x_cart, tracer2.y_cart, tracer2.z_cart, tracer2.ra, tracer2.dec
