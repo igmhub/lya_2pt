@@ -1,6 +1,7 @@
 import multiprocessing
 
 import numpy as np
+import healpy as hp
 import tqdm
 
 import lya_2pt.global_data as globals
@@ -10,18 +11,20 @@ from lya_2pt.optimal_estimator import compute_xi_and_fisher
 from lya_2pt.cosmo import Cosmology
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
 from lya_2pt.tracer2_reader import Tracer2Reader
+from lya_2pt.tracer_utils import find_healpix_neighbours
 from lya_2pt.utils import find_path, parse_config, compute_ang_max
 from lya_2pt.output import Output
 from lya_2pt.export import Export
 
 accepted_options = [
-    "nside", "num-cpu", "z_min", "z_max", "rp_min", "rp_max", "rt_max",
+    "input-nside", "output-nside", "num-cpu", "z_min", "z_max", "rp_min", "rp_max", "rt_max",
     "num_bins_rp", "num_bins_rt", "num_bins_rp_model", "num_bins_rt_model",
     "rejection_fraction", "get-old-distortion"
 ]
 
 defaults = {
-    "nside": 16,
+    "input-nside": 16,
+    "output-nside": 16,
     "num-cpu": 1,
     "z_min": 0,
     "z_max": 10,
@@ -97,7 +100,8 @@ class Interface:
         globals.rejection_fraction = self.settings.getfloat('rejection_fraction')
         globals.get_old_distortion = self.settings.getboolean('get-old-distortion')
 
-        self.nside = self.settings.getint("nside")
+        self.input_nside = self.settings.getint("input-nside")
+        self.output_nside = self.settings.getint("output-nside")
         self.num_cpu = self.settings.getint("num-cpu")
 
         # TODO The default value here is z=1.7. We should adjust if we ever run at lower redshift
@@ -141,10 +145,11 @@ class Interface:
         forest_readers = {reader.healpix_id: reader for reader in results}
         del results
 
-        healpix_neighbours = {}
-        for reader in forest_readers.values():
-            healpix_neighbours[reader.healpix_id] = reader.find_healpix_neighbours(
-                self.nside, self.ang_max)
+        healpix_neighbours = {
+            reader.healpix_id: find_healpix_neighbours(
+                reader.tracers, reader.healpix_id, self.input_nside, self.ang_max, self.auto_flag)
+            for reader in forest_readers.values()
+        }
 
         unique_healpix_neighbours = np.unique(np.hstack([
             neigh for neigh in healpix_neighbours.values()]))
@@ -165,10 +170,24 @@ class Interface:
                 self.num_cpu, self.need_distortion
                 )
 
-        globals.tracers1 = {hp_id: forest_reader.tracers
-                            for hp_id, forest_reader in forest_readers.items()}
-        globals.tracers2 = tracer2_reader.tracers
-        globals.healpix_neighbours = healpix_neighbours
+        if self.input_nside != self.output_nside:
+            globals.tracers1 = self.new_healpix_nside(
+                self.output_nside,
+                [forest_reader.tracers for forest_reader in forest_readers.values()]
+            )
+            globals.tracers2 = self.new_healpix_nside(
+                self.output_nside, [tracers for tracers in tracer2_reader.tracers.values()]
+            )
+        else:
+            globals.tracers1 = {hp_id: forest_reader.tracers
+                                for hp_id, forest_reader in forest_readers.items()}
+            globals.tracers2 = tracer2_reader.tracers
+
+        globals.healpix_neighbours = {
+            healpix_id: find_healpix_neighbours(
+                tracers, healpix_id, self.output_nside, self.ang_max, self.auto_flag)
+            for healpix_id, tracers in globals.tracers1.items()
+        }
 
         globals.num_tracers = np.sum(
             [len(tracers)for tracers in tracer2_reader.tracers.values()])
@@ -179,6 +198,22 @@ class Interface:
             self.config["tracer1"], file, self.cosmo, self.auto_flag, self.need_distortion)
 
         return forest_reader
+
+    def new_healpix_nside(self, new_nside, tracers):
+        new_tracers = {}
+
+        for hp_tracers in tracers:
+            phi = [tracer.ra for tracer in hp_tracers]
+            theta = [np.pi / 2. - tracer.dec for tracer in hp_tracers]
+            healpixs = hp.ang2pix(new_nside, theta, phi)
+
+            for tracer, healpix_id in zip(hp_tracers, healpixs):
+
+                if healpix_id not in new_tracers:
+                    new_tracers[healpix_id] = []
+                new_tracers[healpix_id].append(tracer)
+
+        return new_tracers
 
     @staticmethod
     def reset_global_counter():
@@ -235,16 +270,31 @@ class Interface:
         self.optimal_xi_output = {}
         if self.config['compute'].getboolean('compute-optimal-correlation', False):
             self.reset_global_counter()
+
+            total_size = int(globals.num_bins_rp * globals.num_bins_rt)
+            self.xi_est = np.zeros(total_size)
+            self.fisher_est = np.zeros((total_size, total_size))
+
             if self.num_cpu > 1:
                 context = multiprocessing.get_context('fork')
                 with context.Pool(processes=self.num_cpu) as pool:
-                    results = pool.map(compute_xi_and_fisher, healpix_ids)
+                    results = list(tqdm.tqdm(
+                        pool.imap_unordered(compute_xi_and_fisher, healpix_ids),
+                        total=len(healpix_ids)
+                    ))
 
                 for hp_id, res in results:
                     self.optimal_xi_output[hp_id] = res
+                    self.xi_est += res[0]
+                    self.fisher_est += res[1]
             else:
                 for healpix_id in healpix_ids:
                     self.optimal_xi_output[healpix_id] = compute_xi_and_fisher(healpix_id)[1]
+
+                    self.xi_est += self.optimal_xi_output[healpix_id][0]
+                    self.fisher_est += self.optimal_xi_output[healpix_id][1]
+
+            # xiall = np.vstack([v for (v, _) in self.optimal_xi_output.values()]).sum(axis=0)
 
         # TODO: add other computations
 
@@ -258,6 +308,7 @@ class Interface:
                 self.output.write_dmat_healpix(result, healpix_id, self.config, self.settings)
 
         if self.config['compute'].getboolean('compute-optimal-correlation', False):
-            for healpix_id, result in self.optimal_xi_output.items():
-                self.output.write_optimal_cf_healpix(result, healpix_id, self.config, self.settings)
+            self.output.write_optimal_cf(
+                self.xi_est, self.fisher_est, self.optimal_xi_output, self.config, self.settings)
+
         # TODO: add other modes

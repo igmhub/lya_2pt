@@ -1,5 +1,6 @@
 import numpy as np
 from numba import njit
+from healpy import query_disc
 
 SMALL_ANGLE_CUT_OFF = 2./3600.*np.pi/180.  # 2 arcsec
 
@@ -208,3 +209,37 @@ def gram_schmidt(log_lambda, weights, order):
         v /= np.sqrt(norm)
         basis.append(v)
     return np.array(basis)
+
+
+def find_healpix_neighbours(tracers, healpix_id, nside, ang_max, auto_flag=False):
+    """Find the healpix neighbours
+
+    Arguments
+    ---------
+    nside: int
+    Nside parameter to construct the healpix pixels
+
+    ang_max: float
+    Maximum angle for two lines-of-sight to have neightbours
+
+    Return
+    ------
+    healpix_ids: array of int
+    The healpix id of the neighbouring healpixes
+
+    Raise
+    -----
+    ReaderException if the self.tracers is None
+    """
+    neighbour_ids = set()
+    for tracer in tracers:
+        tracer_neighbour_ids = query_disc(
+            nside, [tracer.x_cart, tracer.y_cart, tracer.z_cart], ang_max, inclusive=True
+        )
+        neighbour_ids = neighbour_ids.union(set(tracer_neighbour_ids))
+
+    neighbour_ids = np.array(list(neighbour_ids))
+    if healpix_id in neighbour_ids and auto_flag:
+        neighbour_ids = np.delete(neighbour_ids, np.where(neighbour_ids == healpix_id))
+
+    return neighbour_ids

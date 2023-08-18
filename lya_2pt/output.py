@@ -67,7 +67,7 @@ class Output:
             'comment': 'Maximum redshift of pairs'
         }, {
             'name': 'NSIDE',
-            'value': settings.getint('nside'),
+            'value': settings.getint('output-nside'),
             'comment': 'Healpix nside'
         }, {
             'name': 'OMEGA_M',
@@ -121,60 +121,8 @@ class Output:
 
         # save data
         results = fitsio.FITS(filename, 'rw', clobber=True)
-        header = [{
-            'name': 'R_PAR_MIN',
-            'value': settings.getfloat('rp_min'),
-            'comment': 'Minimum r-parallel [h^-1 Mpc]'
-        }, {
-            'name': 'R_PAR_MAX',
-            'value': settings.getfloat('rp_max'),
-            'comment': 'Maximum r-parallel [h^-1 Mpc]'
-        }, {
-            'name': 'R_TRANS_MAX',
-            'value': settings.getfloat('rt_max'),
-            'comment': 'Maximum r-transverse [h^-1 Mpc]'
-        }, {
-            'name': 'NUM_BINS_R_PAR',
-            'value': settings.getint('num_bins_rp'),
-            'comment': 'Number of bins in r-parallel'
-        }, {
-            'name': 'NUM_BINS_R_TRANS',
-            'value': settings.getint('num_bins_rt'),
-            'comment': 'Number of bins in r-transverse'
-        }, {
-            'name': 'Z_MIN',
-            'value': settings.getfloat('z_min'),
-            'comment': 'Minimum redshift of pairs'
-        }, {
-            'name': 'Z_MAX',
-            'value': settings.getfloat('z_max'),
-            'comment': 'Maximum redshift of pairs'
-        }, {
-            'name': 'REJECTION_FRAC',
-            'value': settings.getfloat('rejection_fraction'),
-            'comment': 'Rejection fraction when computing distortion'
-        }, {
-            'name': 'NSIDE',
-            'value': settings.getint('nside'),
-            'comment': 'Healpix nside'
-        }, {
-            'name': 'NUM_PAIRS',
-            'value': output[6],
-            'comment': 'Healpix nside'
-        }, {
-            'name': 'PAIRS_USED',
-            'value': output[7],
-            'comment': 'Healpix nside'
-        }, {
-            'name': 'OMEGA_M',
-            'value': global_config['cosmology'].getfloat('Omega_m'),
-            'comment': 'Omega_matter(z=0) of fiducial LambdaCDM cosmology'
-        }, {
-            'name': "BLINDING",
-            'value': self.blinding,
-            'comment': 'String specifying the blinding strategy'
-        }
-        ]
+        header = self.get_cf_header(settings, global_config)
+
         results.write(
             [output[2], output[3], output[4], output[5]],
             names=['R_PAR', 'R_TRANS', 'Z', 'EFF_WEIGHTS'],
@@ -210,10 +158,67 @@ class Output:
         file: str
         Name of the read file, used to construct the output file
         """
-        filename = self.healpix_dir / f"correlation-{healpix_id}.fits.gz"
+        filename = self.healpix_dir / f"optimal-correlation-{healpix_id}.fits.gz"
 
         # save data
         results = fitsio.FITS(filename, 'rw', clobber=True)
+        header = self.get_cf_header(settings, global_config)
+        header.append({'name': 'HEALPIX_ID', 'value': healpix_id, 'comment': 'Healpix id'})
+
+        correlation_name = "CORRELATION"
+        if self.blinding != "none":
+            correlation_name += "_BLIND"
+
+        results.write(
+            [output[0], output[1]],
+            names=[correlation_name, "FISHER_MATRIX"],
+            comment=['unnormalized correlation', 'Fisher matrix'],
+            header=header,
+            extname='CORRELATION'
+        )
+
+        results.close()
+
+    def write_optimal_cf(self, xi_est, fisher_est, output, global_config, settings):
+        """Write computation output for the main healpix
+
+        Arguments
+        ---------
+        config: configparser.SectionProxy
+        Configuration options
+
+        file: str
+        Name of the read file, used to construct the output file
+        """
+        filename = self.healpix_dir / "optimal-correlation-all.fits.gz"
+
+        # save data
+        output_fits = fitsio.FITS(filename, 'rw', clobber=True)
+        header = self.get_cf_header(settings, global_config)
+
+        correlation_name = "CORRELATION"
+        if self.blinding != "none":
+            correlation_name += "_BLIND"
+
+        output_fits.write(
+            [xi_est, fisher_est],
+            names=[correlation_name, "FISHER_MATRIX"],
+            comment=['unnormalized correlation', 'Fisher matrix'],
+            header=header,
+            extname='sum'
+        )
+        # for healpix_id, result in output.items():
+        #     output_fits.write(
+        #         [result[0], result[1]],
+        #         names=[correlation_name, "FISHER_MATRIX"],
+        #         comment=['unnormalized correlation', 'Fisher matrix'],
+        #         header=header,
+        #         extname=str(healpix_id)
+        #     )
+
+        output_fits.close()
+
+    def get_cf_header(self, settings, global_config):
         header = [{
             'name': 'R_PAR_MIN',
             'value': settings.getfloat('rp_min'),
@@ -244,7 +249,7 @@ class Output:
             'comment': 'Maximum redshift of pairs'
         }, {
             'name': 'NSIDE',
-            'value': settings.getint('nside'),
+            'value': settings.getint('output-nside'),
             'comment': 'Healpix nside'
         }, {
             'name': 'OMEGA_M',
@@ -254,21 +259,6 @@ class Output:
             'name': "BLINDING",
             'value': self.blinding,
             'comment': 'String specifying the blinding strategy'
-        }, {
-            'name': 'HEALPIX_ID',
-            'value': healpix_id,
-            'comment': 'Healpix id'
         }]
-        correlation_name = "CORRELATION"
-        if self.blinding != "none":
-            correlation_name += "_BLIND"
 
-        results.write(
-            [output[0], output[1]],
-            names=[correlation_name, "FISHER_MATRIX"],
-            comment=['unnormalized correlation', 'Fisher matrix'],
-            header=header,
-            extname='CORRELATION'
-        )
-
-        results.close()
+        return header

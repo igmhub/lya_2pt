@@ -1,5 +1,3 @@
-import sys
-
 import numpy as np
 from numba import njit
 from scipy.constants import speed_of_light
@@ -8,6 +6,35 @@ from scipy.sparse import coo_array
 
 import lya_2pt.global_data as globals
 from lya_2pt.tracer_utils import get_angle
+
+
+@njit
+def compute_raw(invcov, mask, size1, size2):
+    """Multiply inverse covariance by the derivative matrix without computing the
+    derivative matrix.
+    """
+    prod = np.zeros((size1, size2))
+    mask_size = len(mask[1])
+
+    start = 0
+    end = 0
+    for i, col_idx in enumerate(mask[1]):
+        if i == (mask_size - 1):
+            row_idx = mask[0][start:mask_size]
+            prod[:, col_idx] += np.sum(invcov[:, row_idx], axis=1)
+
+            start = i + 1
+            end = i + 1
+        elif mask[1][i + 1] != col_idx:
+            row_idx = mask[0][start:i + 1]
+            prod[:, col_idx] += np.sum(invcov[:, row_idx], axis=1)
+
+            start = i + 1
+            end = i + 1
+        else:
+            end += 1
+
+    return prod
 
 
 def fiducial_Pk_angstrom(
@@ -90,52 +117,23 @@ def get_xi_bins_t(tracer1, tracer2, angle):
 
 def build_deriv(bins):
     """Return a list of tuples: (bin_index, C_deriv), sorted by bin_index"""
-    c_deriv_list = []
+    nrows, ncols = bins.shape
+    bins_flat = bins.ravel()
+    idx_sort = bins_flat.argsort()  # j + i * ncols
+    bins_flat = bins_flat[idx_sort]
 
-    for bin_index in np.unique(bins):
-        if bin_index == -1:
-            continue
+    unique_bins, unique_indices = np.unique(bins_flat, return_index=True)
+    split_bins = np.split(idx_sort, unique_indices[1:])
+    if unique_bins[0] == -1:
+        unique_bins = unique_bins[1:]
+        split_bins = split_bins[1:]
 
-        row, col = np.where(bins == bin_index)
-        M = coo_array(
-            (np.ones(row.size), (row, col)), shape=bins.shape
-        ).tocsr()
-
-        c_deriv_list.append((bin_index, M))
-
-    # np.unique returns sorted
-    # c_deriv_list.sort()
+    c_deriv_list = [
+        (bin_index, coo_array((np.ones(idx.size), divmod(idx, ncols)), shape=bins.shape).tocsr())
+        for bin_index, idx in zip(unique_bins, split_bins)
+    ]
 
     return c_deriv_list
-
-
-@njit
-def compute_raw(invcov, mask, size1, size2):
-    """Multiply inverse covariance by the derivative matrix without computing the
-    derivative matrix.
-    """
-    prod = np.zeros((size1, size2))
-    mask_size = len(mask[1])
-
-    start = 0
-    end = 0
-    for i, col_idx in enumerate(mask[1]):
-        if i == (mask_size - 1):
-            row_idx = mask[0][start:mask_size]
-            prod[:, col_idx] += np.sum(invcov[:, row_idx], axis=1)
-
-            start = i + 1
-            end = i + 1
-        elif mask[1][i + 1] != col_idx:
-            row_idx = mask[0][start:i + 1]
-            prod[:, col_idx] += np.sum(invcov[:, row_idx], axis=1)
-
-            start = i + 1
-            end = i + 1
-        else:
-            end += 1
-
-    return prod
 
 
 def compute_xi_and_fisher_pair(
@@ -194,13 +192,6 @@ def compute_xi_and_fisher(healpix_id):
     xi1d_interp = build_xi1d()
 
     for tracer1 in globals.tracers1[healpix_id]:
-        with globals.lock:
-            xicounter = round(globals.counter.value * 100. / globals.num_tracers, 2)
-            if (globals.counter.value % 10 == 0):
-                print(("computing xi: {}%").format(xicounter))
-                sys.stdout.flush()
-            globals.counter.value += 1
-
         potential_neighbours = [tracer2 for hp in hp_neighs for tracer2 in globals.tracers2[hp]]
 
         neighbours = tracer1.get_neighbours(
@@ -209,7 +200,8 @@ def compute_xi_and_fisher(healpix_id):
             globals.rp_max, globals.rt_max
             )
 
-        for tracer2 in neighbours:
+        w = np.random.rand(neighbours.size) > globals.rejection_fraction
+        for tracer2 in neighbours[w]:
             angle = get_angle(
                 tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra, tracer1.dec,
                 tracer2.x_cart, tracer2.y_cart, tracer2.z_cart, tracer2.ra, tracer2.dec
