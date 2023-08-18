@@ -222,12 +222,12 @@ def compute_xi_and_fisher(healpix_id):
     xi1d_interp = build_xi1d()
 
     for tracer1 in globals.tracers1[healpix_id]:
-        with globals.lock:
-            xicounter = round(globals.counter.value * 100. / globals.num_tracers, 2)
-            if (globals.counter.value % 10 == 0):
-                print(("computing xi: {}%").format(xicounter))
-                sys.stdout.flush()
-            globals.counter.value += 1
+        # with globals.lock:
+        #     xicounter = round(globals.counter.value * 100. / globals.num_tracers, 2)
+        #     if (globals.counter.value % 10 == 0):
+        #         print(("computing xi: {}%").format(xicounter))
+        #         sys.stdout.flush()
+        #     globals.counter.value += 1
 
         potential_neighbours = [tracer2 for hp in hp_neighs for tracer2 in globals.tracers2[hp]]
 

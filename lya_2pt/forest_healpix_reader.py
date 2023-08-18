@@ -1,6 +1,5 @@
 import fitsio
 import numpy as np
-from healpy import query_disc
 
 from lya_2pt.constants import ACCEPTED_BLINDING_STRATEGIES
 from lya_2pt.errors import ReaderException
@@ -132,41 +131,41 @@ class ForestHealpixReader:
         for tracer in self.tracers:
             tracer.compute_comoving_distances(cosmo)
 
-    def find_healpix_neighbours(self, nside, ang_max):
-        """Find the healpix neighbours
+    # def find_healpix_neighbours(self, nside, ang_max):
+    #     """Find the healpix neighbours
 
-        Arguments
-        ---------
-        nside: int
-        Nside parameter to construct the healpix pixels
+    #     Arguments
+    #     ---------
+    #     nside: int
+    #     Nside parameter to construct the healpix pixels
 
-        ang_max: float
-        Maximum angle for two lines-of-sight to have neightbours
+    #     ang_max: float
+    #     Maximum angle for two lines-of-sight to have neightbours
 
-        Return
-        ------
-        healpix_ids: array of int
-        The healpix id of the neighbouring healpixes
+    #     Return
+    #     ------
+    #     healpix_ids: array of int
+    #     The healpix id of the neighbouring healpixes
 
-        Raise
-        -----
-        ReaderException if the self.tracers is None
-        """
-        if self.tracers is None:
-            raise ReaderException(
-                "In ForestHealpixReader, self.tracer should not be None")
+    #     Raise
+    #     -----
+    #     ReaderException if the self.tracers is None
+    #     """
+    #     if self.tracers is None:
+    #         raise ReaderException(
+    #             "In ForestHealpixReader, self.tracer should not be None")
 
-        neighbour_ids = set()
-        for tracer in self.tracers:
-            tracer_neighbour_ids = query_disc(nside, [tracer.x_cart, tracer.y_cart, tracer.z_cart],
-                                              ang_max, inclusive=True)
-            neighbour_ids = neighbour_ids.union(set(tracer_neighbour_ids))
+    #     neighbour_ids = set()
+    #     for tracer in self.tracers:
+    #         tracer_neighbour_ids = query_disc(nside, [tracer.x_cart, tracer.y_cart, tracer.z_cart],
+    #                                           ang_max, inclusive=True)
+    #         neighbour_ids = neighbour_ids.union(set(tracer_neighbour_ids))
 
-        neighbour_ids = np.array(list(neighbour_ids))
-        if self.healpix_id in neighbour_ids and self.auto_flag:
-            neighbour_ids = np.delete(neighbour_ids, np.where(neighbour_ids == self.healpix_id))
+    #     neighbour_ids = np.array(list(neighbour_ids))
+    #     if self.healpix_id in neighbour_ids and self.auto_flag:
+    #         neighbour_ids = np.delete(neighbour_ids, np.where(neighbour_ids == self.healpix_id))
 
-        return neighbour_ids
+    #     return neighbour_ids
 
     # def find_neighbours(self, other, z_min, z_max, rp_max, rt_max):
     #     """For each tracer, find neighbouring tracers. Keep the results in
