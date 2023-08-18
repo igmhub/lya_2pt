@@ -174,19 +174,18 @@ def compute_xi_and_fisher_pair(
     invcov1_x_c_deriv_list = [c_deriv.T.dot(invcov1).T for c_deriv in c_deriv_list]
     c_deriv_x_invcov2_list = [c_deriv.dot(invcov2) for c_deriv in c_deriv_list]
 
-    for i, bin1 in enumerate(unique_bins):
-        c_deriv_x_invcov2 = c_deriv_x_invcov2_list[i]
-        rmin1, rmax1 = rminmax_list[i]
+    for i, (bin1, c_deriv_x_invcov2, (rmin1, rmax1)) in enumerate(
+            zip(unique_bins, c_deriv_x_invcov2_list, rminmax_list)
+    ):
+        s_list = [
+            np.s_[max(rmin1, rmin2):min(rmax1, rmin2)]
+            for rmin2, rmax2 in rminmax_list[i:]
+        ]
 
-        for j in range(i, unique_bins.size):
-            bin2 = unique_bins[j]
-            invcov1_x_c_deriv = invcov1_x_c_deriv_list[j]
-            rmin2, rmax2 = rminmax_list[j]
-            rmin = max(rmin1, rmin2)
-            rmax = min(rmax1, rmin2)
-            s = np.s_[rmin:rmax]
-
-            fisher_est[bin1, bin2] += np.vdot(c_deriv_x_invcov2[s], invcov1_x_c_deriv[s])
+        fisher_est[bin1, unique_bins[i:]] += np.array([
+            np.vdot(c_deriv_x_invcov2[s], invcov1_x_c_deriv[s])
+            for s, invcov1_x_c_deriv in zip(s_list, invcov1_x_c_deriv_list[i:])
+        ])
 
     return xi_est, fisher_est
 
