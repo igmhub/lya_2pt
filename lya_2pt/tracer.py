@@ -139,6 +139,8 @@ class Tracer:
         # self.neighbours = None
         # self.num_neighbours = None
         self.is_projected = False
+        self.invcov = None
+        self.is_weighted = False
 
     # def add_neighbours(self, neighbours):
     #     """Add neighbours mask
@@ -294,3 +296,26 @@ class Tracer:
             self.logwave_term = self.log_lambda - (np.sum(self.log_lambda * self.weights)
                                                    / self.sum_weights)
             self.term3_norm = (self.weights * self.logwave_term**2).sum()
+
+    def set_inverse_covariance(self, xi1d_interp):
+        if self.invcov is not None:
+            return
+
+        z_ij = np.sqrt((1 + self.z[:, None]) * (1 + self.z[None, :])) - 1
+        wavelength = 10**self.log_lambda
+
+        delta_lambdas = wavelength[:, None] - wavelength[None, :]
+        covariance = xi1d_interp((z_ij, delta_lambdas))
+        covariance[np.diag_indices(self.z.size)] += 1 / self.ivar
+        # covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.weights
+
+        self.invcov = np.linalg.inv(covariance)
+
+    def release_inverse_covariance(self):
+        self.invcov = None
+
+    def apply_invcov_to_deltas(self):
+        if self.is_weighted:
+            return
+
+        self.deltas = self.invcov.dot(self.deltas)

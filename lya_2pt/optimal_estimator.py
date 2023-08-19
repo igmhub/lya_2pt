@@ -45,18 +45,6 @@ def build_xi1d(z1=1.8, z2=4., nz=50, lambda_max=2048):
     return RGI((z, r), xi_wwindow, method='linear', bounds_error=False)
 
 
-def build_inverse_covariance(tracer, xi1d_interp):
-    z_ij = np.sqrt((1 + tracer.z[:, None]) * (1 + tracer.z[None, :])) - 1
-    wavelength = 10**tracer.log_lambda
-
-    delta_lambdas = wavelength[:, None] - wavelength[None, :]
-    covariance = xi1d_interp((z_ij, delta_lambdas))
-    covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.ivar
-    # covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.weights
-
-    return np.linalg.inv(covariance)
-
-
 def get_xi_bins(tracer1, tracer2, angle):
     rp = np.abs(np.subtract.outer(tracer1.dist_c, tracer2.dist_c) * np.cos(angle / 2))
     rt = np.add.outer(tracer1.dist_m, tracer2.dist_m) * np.sin(angle / 2)
@@ -160,19 +148,18 @@ def compute_xi_and_fisher_pair(
         tracer1, tracer2, angle, xi1d_interp,
         xi_est, fisher_est
 ):
-    invcov1 = build_inverse_covariance(tracer1, xi1d_interp)
-    invcov2 = build_inverse_covariance(tracer2, xi1d_interp)
-
     bins = get_xi_bins_t(tracer1, tracer2, angle)
     unique_bins, c_deriv_list = build_deriv(bins)
 
-    y1, y2 = invcov1 @ tracer1.deltas, invcov2 @ tracer2.deltas
-    xi_est[unique_bins] += np.array([2 * np.dot(y1, c_deriv.dot(y2)) for c_deriv in c_deriv_list])
+    # deltas are weighted before this function is called
+    xi_est[unique_bins] += np.array([
+        2 * np.dot(tracer1.deltas, c_deriv.dot(tracer2.deltas)) for c_deriv in c_deriv_list
+    ])
 
-    invcov1_x_c_deriv_list = [c_deriv.T.dot(invcov1).T for c_deriv in c_deriv_list]
+    invcov1_x_c_deriv_list = [c_deriv.T.dot(tracer1.invcov).T for c_deriv in c_deriv_list]
 
     for i, (bin1, c_deriv) in enumerate(zip(unique_bins, c_deriv_list)):
-        c_deriv_x_invcov2 = c_deriv.dot(invcov2)
+        c_deriv_x_invcov2 = c_deriv.dot(tracer2.invcov)
 
         fisher_est[bin1, unique_bins[i:]] += np.array([
             np.vdot(c_deriv_x_invcov2, invcov1_x_c_deriv)
@@ -226,14 +213,20 @@ def compute_xi_and_fisher(healpix_id):
             potential_neighbours, globals.auto_flag,
             globals.z_min, globals.z_max,
             globals.rp_max, globals.rt_max
-            )
+        )
+
+        tracer1.set_inverse_covariance(xi1d_interp)
+        tracer1.apply_invcov_to_deltas()
 
         for tracer2 in neighbours:
             angle = get_angle(
                 tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra, tracer1.dec,
                 tracer2.x_cart, tracer2.y_cart, tracer2.z_cart, tracer2.ra, tracer2.dec
-                )
+            )
 
+            tracer2.set_inverse_covariance(xi1d_interp)
+            tracer2.apply_invcov_to_deltas()
             compute_xi_and_fisher_pair(tracer1, tracer2, angle, xi1d_interp, xi_est, fisher_est)
+            tracer2.release_inverse_covariance()
 
     return healpix_id, (xi_est, fisher_est)
