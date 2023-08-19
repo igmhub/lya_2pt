@@ -179,7 +179,7 @@ class Output:
 
         results.close()
 
-    def write_optimal_cf(self, output, global_config, settings):
+    def write_optimal_cf(self, xi_est, fisher_est, output, global_config, settings):
         """Write computation output for the main healpix
 
         Arguments
@@ -200,14 +200,21 @@ class Output:
         if self.blinding != "none":
             correlation_name += "_BLIND"
 
-        for healpix_id, result in output.items():
-            output_fits.write(
-                [result[0], result[1]],
-                names=[correlation_name, "FISHER_MATRIX"],
-                comment=['unnormalized correlation', 'Fisher matrix'],
-                header=header,
-                extname=str(healpix_id)
-            )
+        output_fits.write(
+            [xi_est, fisher_est],
+            names=[correlation_name, "FISHER_MATRIX"],
+            comment=['unnormalized correlation', 'Fisher matrix'],
+            header=header,
+            extname='sum'
+        )
+        # for healpix_id, result in output.items():
+        #     output_fits.write(
+        #         [result[0], result[1]],
+        #         names=[correlation_name, "FISHER_MATRIX"],
+        #         comment=['unnormalized correlation', 'Fisher matrix'],
+        #         header=header,
+        #         extname=str(healpix_id)
+        #     )
 
         output_fits.close()
 

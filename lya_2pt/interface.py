@@ -272,8 +272,8 @@ class Interface:
             self.reset_global_counter()
 
             total_size = int(globals.num_bins_rp * globals.num_bins_rt)
-            xi_est = np.zeros(total_size)
-            fisher_est = np.zeros((total_size, total_size))
+            self.xi_est = np.zeros(total_size)
+            self.fisher_est = np.zeros((total_size, total_size))
 
             if self.num_cpu > 1:
                 context = multiprocessing.get_context('fork')
@@ -285,14 +285,14 @@ class Interface:
 
                 for hp_id, res in results:
                     self.optimal_xi_output[hp_id] = res
-                    xi_est += res[0]
-                    fisher_est += res[1]
+                    self.xi_est += res[0]
+                    self.fisher_est += res[1]
             else:
                 for healpix_id in healpix_ids:
                     self.optimal_xi_output[healpix_id] = compute_xi_and_fisher(healpix_id)[1]
 
-                    xi_est += self.optimal_xi_output[healpix_id][0]
-                    fisher_est += self.optimal_xi_output[healpix_id][1]
+                    self.xi_est += self.optimal_xi_output[healpix_id][0]
+                    self.fisher_est += self.optimal_xi_output[healpix_id][1]
 
             # xiall = np.vstack([v for (v, _) in self.optimal_xi_output.values()]).sum(axis=0)
 
@@ -308,6 +308,7 @@ class Interface:
                 self.output.write_dmat_healpix(result, healpix_id, self.config, self.settings)
 
         if self.config['compute'].getboolean('compute-optimal-correlation', False):
-            self.output.write_optimal_cf(self.optimal_xi_output, self.config, self.settings)
+            self.output.write_optimal_cf(
+                self.xi_est, self.fisher_est, self.optimal_xi_output, self.config, self.settings)
 
         # TODO: add other modes
