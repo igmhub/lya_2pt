@@ -321,3 +321,4 @@ class Tracer:
             return
 
         self.deltas = self.invcov.dot(self.deltas)
+        self.is_weighted = True
