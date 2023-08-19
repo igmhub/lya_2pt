@@ -55,7 +55,7 @@ def compute_dmat(healpix_id):
 
         potential_neighbours = [tracer2 for hp in hp_neighs for tracer2 in globals.tracers2[hp]]
 
-        neighbours = tracer1.get_neighbours(
+        neighbours, _ = tracer1.get_neighbours(
             potential_neighbours, globals.auto_flag,
             globals.z_min, globals.z_max,
             globals.rp_max, globals.rt_max

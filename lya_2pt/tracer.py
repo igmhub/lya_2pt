@@ -232,6 +232,7 @@ class Tracer:
         not_w1[w1] = w_test1
         neighbours = neighbours[not_w1]
         cos_angles = cos_angles[not_w1]
+        angles = angles[not_w1]
 
         dist_c_end = np.array([tracer.dist_c[-1] for tracer in neighbours])
         w2 = self.dist_c[0] > dist_c_end
@@ -244,8 +245,9 @@ class Tracer:
         not_w2 = ~w2
         not_w2[w2] = w_test2
         neighbours = neighbours[not_w2]
+        angles = angles[not_w2]
 
-        return neighbours
+        return neighbours, angles
 
     def rebin(self, rebin_factor, dwave, absorption_line, use_ivar=False):
         """Rebin the forest into coarser pixels
