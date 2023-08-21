@@ -102,7 +102,7 @@ def get_xi_bins_t(tracer1, tracer2, angle):
     return bins
 
 
-def build_deriv(bins, return_rminmax=False):
+def build_deriv(bins, return_idxminmax=False):
     unique_bins = np.unique(bins)
     if unique_bins[0] == -1:
         unique_bins = unique_bins[1:]
@@ -113,10 +113,11 @@ def build_deriv(bins, return_rminmax=False):
         for idx in idx_list
     ]
 
-    if return_rminmax:
-        rminmax_list = [(idx[0].min(), idx[0].max() + 1) for idx in idx_list]
+    if return_idxminmax:
+        idx_minmax_list = [
+            (idx[0].min(), idx[0].max() + 1, idx[1].min(), idx[1].max() + 1) for idx in idx_list]
 
-        return unique_bins, c_deriv_list, rminmax_list
+        return unique_bins, c_deriv_list, idx_minmax_list
 
     return unique_bins, c_deriv_list
 
@@ -150,7 +151,7 @@ def compute_xi_and_fisher_pair(
         xi_est, fisher_est
 ):
     bins = get_xi_bins_t(tracer1, tracer2, angle)
-    unique_bins, c_deriv_list, rminmax_list = build_deriv(bins, return_rminmax=True)
+    unique_bins, c_deriv_list, idx_minmax_list = build_deriv(bins, return_idxminmax=True)
 
     # deltas are weighted before this function is called
     xi_est[unique_bins] += np.array([
@@ -158,14 +159,15 @@ def compute_xi_and_fisher_pair(
     ])
 
     invcov1_x_c_deriv_list = [c_deriv.T.dot(tracer1.invcov).T for c_deriv in c_deriv_list]
-    s_slices = [np.s_[rmin:rmax] for (rmin, rmax) in rminmax_list]
+    row_slices = [np.s_[rmin:rmax] for (rmin, rmax, _, _) in idx_minmax_list]
+    col_slices = [np.s_[cmin:cmax] for (_, _, cmin, cmax) in idx_minmax_list]
 
-    for i, (bin1, c_deriv, s) in enumerate(zip(unique_bins, c_deriv_list, s_slices)):
+    for i, (bin1, c_deriv, rs) in enumerate(zip(unique_bins, c_deriv_list, row_slices)):
         c_deriv_x_invcov2 = c_deriv.dot(tracer2.invcov)
 
         fisher_est[bin1, unique_bins[i:]] += np.array([
-            np.vdot(c_deriv_x_invcov2[s], invcov1_x_c_deriv[s])
-            for invcov1_x_c_deriv in invcov1_x_c_deriv_list[i:]
+            np.vdot(c_deriv_x_invcov2[rs, cs], invcov1_x_c_deriv[rs, cs])
+            for invcov1_x_c_deriv, cs in zip(invcov1_x_c_deriv_list[i:], col_slices)
         ])
 
     return xi_est, fisher_est
