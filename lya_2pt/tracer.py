@@ -23,12 +23,8 @@ class Tracer:
         Line of sight's declination
     order: int
         Order of polynomial used for the continuum fitting
-    x_cart: float
-        Cartesian x coordinate of the tracer
-    y_cart: float
-        Cartesian y coordinate of the tracer
-    z_cart: float
-        Cartesian z coordinate of the tracer
+    r_cart: array of float
+        Cartesian (x, y, z) coordinate of the tracer
     deltas: array of float
         The array of deltas for continuous tracers. For discrete tracers, an array
         with ones.
@@ -110,9 +106,7 @@ class Tracer:
         self.dec = dec
         self.order = order
 
-        self.x_cart = np.cos(ra) * np.cos(dec)
-        self.y_cart = np.sin(ra) * np.cos(dec)
-        self.z_cart = np.sin(dec)
+        self.r_cart = np.array([np.cos(ra) * np.cos(dec), np.sin(ra) * np.cos(dec), np.sin(dec)])
 
         self.deltas = deltas.copy()
         self.weights = weights.copy()

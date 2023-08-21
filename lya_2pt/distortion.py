@@ -80,8 +80,8 @@ def compute_tracer_pair_dmat(
 ):
     # Compute angle between the two tracers
     angle = get_angle(
-        tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra, tracer1.dec,
-        tracer2.x_cart, tracer2.y_cart, tracer2.z_cart, tracer2.ra, tracer2.dec
+        tracer1.r_cart, tracer1.ra, tracer1.dec,
+        tracer2.r_cart, tracer2.ra, tracer2.dec
     )
 
     # Find and save all relevant pixel pairs
