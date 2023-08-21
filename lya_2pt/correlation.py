@@ -49,18 +49,13 @@ def compute_xi(healpix_id):
 
         potential_neighbours = [tracer2 for hp in hp_neighs for tracer2 in globals.tracers2[hp]]
 
-        neighbours = tracer1.get_neighbours(
+        neighbours, angles = tracer1.get_neighbours(
             potential_neighbours, globals.auto_flag,
             globals.z_min, globals.z_max,
             globals.rp_max, globals.rt_max
             )
 
-        for tracer2 in neighbours:
-            angle = get_angle(
-                tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra, tracer1.dec,
-                tracer2.x_cart, tracer2.y_cart, tracer2.z_cart, tracer2.ra, tracer2.dec
-                )
-
+        for tracer2, angle in zip(neighbours, angles):
             compute_xi_pair(
                 tracer1.deltas, tracer1.weights, tracer1.z, tracer1.dist_c, tracer1.dist_m,
                 tracer2.deltas, tracer2.weights, tracer2.z, tracer2.dist_c, tracer2.dist_m,

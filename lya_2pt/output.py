@@ -122,6 +122,12 @@ class Output:
         # save data
         results = fitsio.FITS(filename, 'rw', clobber=True)
         header = self.get_cf_header(settings, global_config)
+        header.append({'name': 'REJECTION_FRAC', 'value': settings.getfloat('rejection_fraction'),
+                       'comment': 'Rejection fraction when computing distortion'})
+        header.append({'name': 'NUM_PAIRS', 'value': output[6],
+                       'comment': 'Total number of forest pairs'})
+        header.append({'name': 'PAIRS_USED', 'value': output[7],
+                       'comment': 'Number of forest pairs used'})
 
         results.write(
             [output[2], output[3], output[4], output[5]],

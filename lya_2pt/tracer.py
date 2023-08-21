@@ -23,12 +23,8 @@ class Tracer:
         Line of sight's declination
     order: int
         Order of polynomial used for the continuum fitting
-    x_cart: float
-        Cartesian x coordinate of the tracer
-    y_cart: float
-        Cartesian y coordinate of the tracer
-    z_cart: float
-        Cartesian z coordinate of the tracer
+    r_cart: array of float
+        Cartesian (x, y, z) coordinate of the tracer
     deltas: array of float
         The array of deltas for continuous tracers. For discrete tracers, an array
         with ones.
@@ -110,9 +106,7 @@ class Tracer:
         self.dec = dec
         self.order = order
 
-        self.x_cart = np.cos(ra) * np.cos(dec)
-        self.y_cart = np.sin(ra) * np.cos(dec)
-        self.z_cart = np.sin(dec)
+        self.r_cart = np.array([np.cos(ra) * np.cos(dec), np.sin(ra) * np.cos(dec), np.sin(dec)])
 
         self.deltas = deltas.copy()
         self.weights = weights.copy()
@@ -139,6 +133,8 @@ class Tracer:
         # self.neighbours = None
         # self.num_neighbours = None
         self.is_projected = False
+        self.invcov = None
+        self.is_weighted = False
 
     # def add_neighbours(self, neighbours):
     #     """Add neighbours mask
@@ -204,19 +200,22 @@ class Tracer:
         # due to continuum fitting errors
         neighbours = [tracer for tracer in neighbours if tracer.los_id != self.los_id]
 
+        if not neighbours:
+            return np.array([]), np.array([])
+
         # Compute angle between forests
         angles = get_angle_list(self, neighbours)
 
         # Check if transverse separation is small enough
         dist_m0 = np.array([tracer.dist_m[0] for tracer in neighbours])
-        smallest_rts = (self.dist_m[0] + dist_m0) * np.sin(angles/2)
+        smallest_rts = (self.dist_m[0] + dist_m0) * np.sin(angles / 2)
 
         w = smallest_rts < rt_max
         neighbours = np.array(neighbours)[w]
         angles = angles[w]
 
         # Check if line-of-sight separation is small enough
-        cos_angles = np.cos(angles/2)
+        cos_angles = np.cos(angles / 2)
 
         dist_c_start = np.array([tracer.dist_c[0] for tracer in neighbours])
         w1 = self.dist_c[-1] < dist_c_start
@@ -230,6 +229,7 @@ class Tracer:
         not_w1[w1] = w_test1
         neighbours = neighbours[not_w1]
         cos_angles = cos_angles[not_w1]
+        angles = angles[not_w1]
 
         dist_c_end = np.array([tracer.dist_c[-1] for tracer in neighbours])
         w2 = self.dist_c[0] > dist_c_end
@@ -242,8 +242,9 @@ class Tracer:
         not_w2 = ~w2
         not_w2[w2] = w_test2
         neighbours = neighbours[not_w2]
+        angles = angles[not_w2]
 
-        return neighbours
+        return neighbours, angles
 
     def rebin(self, rebin_factor, dwave, absorption_line, use_ivar=False):
         """Rebin the forest into coarser pixels
@@ -294,3 +295,27 @@ class Tracer:
             self.logwave_term = self.log_lambda - (np.sum(self.log_lambda * self.weights)
                                                    / self.sum_weights)
             self.term3_norm = (self.weights * self.logwave_term**2).sum()
+
+    def set_inverse_covariance(self, xi1d_interp):
+        if self.invcov is not None:
+            return
+
+        z_ij = np.sqrt((1 + self.z[:, None]) * (1 + self.z[None, :])) - 1
+        wavelength = 10**self.log_lambda
+
+        delta_lambdas = wavelength[:, None] - wavelength[None, :]
+        covariance = xi1d_interp((z_ij, delta_lambdas))
+        covariance[np.diag_indices(self.z.size)] += 1 / self.ivar
+        # covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.weights
+
+        self.invcov = np.linalg.inv(covariance)
+
+    def release_inverse_covariance(self):
+        self.invcov = None
+
+    def apply_invcov_to_deltas(self):
+        if self.is_weighted:
+            return
+
+        self.deltas = self.invcov.dot(self.deltas)
+        self.is_weighted = True

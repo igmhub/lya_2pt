@@ -2,39 +2,33 @@ import numpy as np
 from numba import njit
 from healpy import query_disc
 
-SMALL_ANGLE_CUT_OFF = 2./3600.*np.pi/180.  # 2 arcsec
+SMALL_ANGLE_CUT_OFF = 2. / 3600. * np.pi / 180.  # 2 arcsec
 
 
 def get_angle_list(tracer1, tracers2):
-    """Compute angle between two tracers"""
-    x_cart = np.array([t2.x_cart for t2 in tracers2])
-    y_cart = np.array([t2.y_cart for t2 in tracers2])
-    z_cart = np.array([t2.z_cart for t2 in tracers2])
+    """Compute angle between two tracers. Assumes tracers2 is not empty!"""
+    r_carts2 = np.vstack([t2.r_cart for t2 in tracers2])
     ra = np.array([t2.ra for t2 in tracers2])
     dec = np.array([t2.dec for t2 in tracers2])
 
-    cos = x_cart * tracer1.x_cart + y_cart * tracer1.y_cart + z_cart * tracer1.z_cart
-    w = cos >= 1.
-    if w.sum() != 0:
-        cos[w] = 1.
-    w = cos <= -1.
-    if w.sum() != 0:
-        cos[w] = -1.
+    cos = r_carts2.dot(tracer1.r_cart)
+    np.clip(cos, -1, 1, out=cos)
     angles = np.arccos(cos)
 
-    w = ((np.abs(ra - tracer1.ra) < SMALL_ANGLE_CUT_OFF) &
-         (np.abs(dec - tracer1.dec) < SMALL_ANGLE_CUT_OFF))
-    if w.sum() != 0:
-        angles[w] = np.sqrt((dec[w] - tracer1.dec)**2 +
-                            (np.cos(tracer1.dec) * (ra[w] - tracer1.ra))**2)
+    w = ((np.abs(ra - tracer1.ra) < SMALL_ANGLE_CUT_OFF)
+         & (np.abs(dec - tracer1.dec) < SMALL_ANGLE_CUT_OFF))
+    if np.any(w):
+        angles[w] = np.sqrt(
+            (dec[w] - tracer1.dec)**2 + (np.cos(tracer1.dec) * (ra[w] - tracer1.ra))**2
+        )
 
     return angles
 
 
 @njit
-def get_angle(x1, y1, z1, ra1, dec1, x2, y2, z2, ra2, dec2):
+def get_angle(r_cart1, ra1, dec1, r_cart2, ra2, dec2):
     """Compute angle between two tracers"""
-    cos = x1 * x2 + y1 * y2 + z1 * z2
+    cos = np.dot(r_cart1, r_cart2)
     if cos >= 1.:
         cos = 1.
     elif cos <= -1.:
@@ -234,7 +228,7 @@ def find_healpix_neighbours(tracers, healpix_id, nside, ang_max, auto_flag=False
     neighbour_ids = set()
     for tracer in tracers:
         tracer_neighbour_ids = query_disc(
-            nside, [tracer.x_cart, tracer.y_cart, tracer.z_cart], ang_max, inclusive=True
+            nside, tracer.r_cart, ang_max, inclusive=True
         )
         neighbour_ids = neighbour_ids.union(set(tracer_neighbour_ids))
 

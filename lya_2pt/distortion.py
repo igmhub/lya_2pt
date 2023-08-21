@@ -55,7 +55,7 @@ def compute_dmat(healpix_id):
 
         potential_neighbours = [tracer2 for hp in hp_neighs for tracer2 in globals.tracers2[hp]]
 
-        neighbours = tracer1.get_neighbours(
+        neighbours, _ = tracer1.get_neighbours(
             potential_neighbours, globals.auto_flag,
             globals.z_min, globals.z_max,
             globals.rp_max, globals.rt_max
@@ -80,8 +80,8 @@ def compute_tracer_pair_dmat(
 ):
     # Compute angle between the two tracers
     angle = get_angle(
-        tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra, tracer1.dec,
-        tracer2.x_cart, tracer2.y_cart, tracer2.z_cart, tracer2.ra, tracer2.dec
+        tracer1.r_cart, tracer1.ra, tracer1.dec,
+        tracer2.r_cart, tracer2.ra, tracer2.dec
     )
 
     # Find and save all relevant pixel pairs

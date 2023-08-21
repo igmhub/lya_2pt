@@ -5,7 +5,6 @@ from scipy.interpolate import RegularGridInterpolator as RGI
 from scipy.sparse import coo_array
 
 import lya_2pt.global_data as globals
-from lya_2pt.tracer_utils import get_angle
 
 
 @njit
@@ -72,18 +71,6 @@ def build_xi1d(z1=1.8, z2=4., nz=50, lambda_max=2048):
     return RGI((z, r), xi_wwindow, method='linear', bounds_error=False)
 
 
-def build_inverse_covariance(tracer, xi1d_interp):
-    z_ij = np.sqrt((1 + tracer.z[:, None]) * (1 + tracer.z[None, :])) - 1
-    wavelength = 10**tracer.log_lambda
-
-    delta_lambdas = wavelength[:, None] - wavelength[None, :]
-    covariance = xi1d_interp((z_ij, delta_lambdas))
-    covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.ivar
-    # covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.weights
-
-    return np.linalg.inv(covariance)
-
-
 def get_xi_bins(tracer1, tracer2, angle):
     rp = np.abs(np.subtract.outer(tracer1.dist_c, tracer2.dist_c) * np.cos(angle / 2))
     rt = np.add.outer(tracer1.dist_m, tracer2.dist_m) * np.sin(angle / 2)
@@ -116,7 +103,27 @@ def get_xi_bins_t(tracer1, tracer2, angle):
 
 
 def build_deriv(bins):
-    """Return a list of tuples: (bin_index, C_deriv), sorted by bin_index"""
+    unique_bins = np.unique(bins)
+    if unique_bins[0] == -1:
+        unique_bins = unique_bins[1:]
+
+    idx_list = [np.nonzero(bins == bin_index) for bin_index in unique_bins]
+    c_deriv_list = [
+        coo_array((np.ones(idx[0].size), idx), shape=bins.shape).tocsr()
+        for idx in idx_list
+    ]
+
+    idx_minmax_list = [
+        (idx[0].min(), idx[0].max() + 1, idx[1].min(), idx[1].max() + 1) for idx in idx_list]
+
+    return unique_bins, c_deriv_list, idx_minmax_list
+
+
+def build_deriv_bysort(bins):
+    """ Build list of derivative matrices by sorting. Performance depends on number of bins and
+    the shape of bins.
+    Return a list of tuples: (bin_index, C_deriv), sorted by bin_index
+    """
     nrows, ncols = bins.shape
     bins_flat = bins.ravel()
     idx_sort = bins_flat.argsort()  # j + i * ncols
@@ -137,26 +144,28 @@ def build_deriv(bins):
 
 
 def compute_xi_and_fisher_pair(
-        tracer1, tracer2, angle, xi1d_interp,
+        tracer1, tracer2, angle,
         xi_est, fisher_est
 ):
-    invcov1 = build_inverse_covariance(tracer1, xi1d_interp)
-    invcov2 = build_inverse_covariance(tracer2, xi1d_interp)
-
     bins = get_xi_bins_t(tracer1, tracer2, angle)
-    c_deriv_list = build_deriv(bins)
+    unique_bins, c_deriv_list, idx_minmax_list = build_deriv(bins)
 
-    invc2_x_c_deriv_list = [(bin2, c_deriv2.T.dot(invcov1).T) for bin2, c_deriv2 in c_deriv_list]
+    # deltas are weighted before this function is called
+    xi_est[unique_bins] += np.array([
+        2 * np.dot(tracer1.deltas, c_deriv.dot(tracer2.deltas)) for c_deriv in c_deriv_list
+    ])
 
-    for i, (bin1, c_deriv1) in enumerate(c_deriv_list):
-        xi = c_deriv1.dot(invcov2 @ tracer2.deltas)
-        xi = 2 * np.dot(invcov1 @ tracer1.deltas, xi)
+    invcov1_x_c_deriv_list = [c_deriv.T.dot(tracer1.invcov).T for c_deriv in c_deriv_list]
+    row_slices = [np.s_[rmin:rmax] for (rmin, rmax, _, _) in idx_minmax_list]
+    col_slices = [np.s_[cmin:cmax] for (_, _, cmin, cmax) in idx_minmax_list]
 
-        xi_est[bin1] += xi
+    for i, (bin1, c_deriv, rs) in enumerate(zip(unique_bins, c_deriv_list, row_slices)):
+        c_deriv_x_invcov2 = c_deriv.dot(tracer2.invcov)
 
-        invc1_x_c_deriv = c_deriv1.dot(invcov2)
-        for bin2, invc2_x_c_deriv in invc2_x_c_deriv_list[i:]:
-            fisher_est[bin1, bin2] += np.vdot(invc1_x_c_deriv, invc2_x_c_deriv)
+        fisher_est[bin1, unique_bins[i:]] += np.array([
+            np.vdot(c_deriv_x_invcov2[rs, cs], invcov1_x_c_deriv[rs, cs])
+            for invcov1_x_c_deriv, cs in zip(invcov1_x_c_deriv_list[i:], col_slices[i:])
+        ])
 
     return xi_est, fisher_est
 
@@ -194,19 +203,22 @@ def compute_xi_and_fisher(healpix_id):
     for tracer1 in globals.tracers1[healpix_id]:
         potential_neighbours = [tracer2 for hp in hp_neighs for tracer2 in globals.tracers2[hp]]
 
-        neighbours = tracer1.get_neighbours(
+        neighbours, angles = tracer1.get_neighbours(
             potential_neighbours, globals.auto_flag,
             globals.z_min, globals.z_max,
             globals.rp_max, globals.rt_max
-            )
+        )
+
+        tracer1.set_inverse_covariance(xi1d_interp)
+        tracer1.apply_invcov_to_deltas()
 
         w = np.random.rand(neighbours.size) > globals.rejection_fraction
-        for tracer2 in neighbours[w]:
-            angle = get_angle(
-                tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra, tracer1.dec,
-                tracer2.x_cart, tracer2.y_cart, tracer2.z_cart, tracer2.ra, tracer2.dec
-                )
+        for tracer2, angle in zip(neighbours[w], angles[w]):
+            tracer2.set_inverse_covariance(xi1d_interp)
+            tracer2.apply_invcov_to_deltas()
+            compute_xi_and_fisher_pair(tracer1, tracer2, angle, xi_est, fisher_est)
+            tracer2.release_inverse_covariance()
 
-            compute_xi_and_fisher_pair(tracer1, tracer2, angle, xi1d_interp, xi_est, fisher_est)
+        tracer1.release_inverse_covariance()
 
     return healpix_id, (xi_est, fisher_est)
