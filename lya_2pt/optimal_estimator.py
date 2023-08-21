@@ -102,7 +102,7 @@ def get_xi_bins_t(tracer1, tracer2, angle):
     return bins
 
 
-def build_deriv(bins, return_idxminmax=False):
+def build_deriv(bins):
     unique_bins = np.unique(bins)
     if unique_bins[0] == -1:
         unique_bins = unique_bins[1:]
@@ -113,13 +113,10 @@ def build_deriv(bins, return_idxminmax=False):
         for idx in idx_list
     ]
 
-    if return_idxminmax:
-        idx_minmax_list = [
-            (idx[0].min(), idx[0].max() + 1, idx[1].min(), idx[1].max() + 1) for idx in idx_list]
+    idx_minmax_list = [
+        (idx[0].min(), idx[0].max() + 1, idx[1].min(), idx[1].max() + 1) for idx in idx_list]
 
-        return unique_bins, c_deriv_list, idx_minmax_list
-
-    return unique_bins, c_deriv_list
+    return unique_bins, c_deriv_list, idx_minmax_list
 
 
 def build_deriv_bysort(bins):
@@ -151,7 +148,7 @@ def compute_xi_and_fisher_pair(
         xi_est, fisher_est
 ):
     bins = get_xi_bins_t(tracer1, tracer2, angle)
-    unique_bins, c_deriv_list, idx_minmax_list = build_deriv(bins, return_idxminmax=True)
+    unique_bins, c_deriv_list, idx_minmax_list = build_deriv(bins)
 
     # deltas are weighted before this function is called
     xi_est[unique_bins] += np.array([

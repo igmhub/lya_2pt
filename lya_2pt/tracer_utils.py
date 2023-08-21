@@ -6,7 +6,7 @@ SMALL_ANGLE_CUT_OFF = 2. / 3600. * np.pi / 180.  # 2 arcsec
 
 
 def get_angle_list(tracer1, tracers2):
-    """Compute angle between two tracers"""
+    """Compute angle between two tracers. Assumes tracers2 is not empty!"""
     r_carts2 = np.vstack([t2.r_cart for t2 in tracers2])
     ra = np.array([t2.ra for t2 in tracers2])
     dec = np.array([t2.dec for t2 in tracers2])

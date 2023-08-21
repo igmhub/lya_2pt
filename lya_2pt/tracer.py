@@ -200,19 +200,22 @@ class Tracer:
         # due to continuum fitting errors
         neighbours = [tracer for tracer in neighbours if tracer.los_id != self.los_id]
 
+        if not neighbours:
+            return [], np.array([])
+
         # Compute angle between forests
         angles = get_angle_list(self, neighbours)
 
         # Check if transverse separation is small enough
         dist_m0 = np.array([tracer.dist_m[0] for tracer in neighbours])
-        smallest_rts = (self.dist_m[0] + dist_m0) * np.sin(angles/2)
+        smallest_rts = (self.dist_m[0] + dist_m0) * np.sin(angles / 2)
 
         w = smallest_rts < rt_max
         neighbours = np.array(neighbours)[w]
         angles = angles[w]
 
         # Check if line-of-sight separation is small enough
-        cos_angles = np.cos(angles/2)
+        cos_angles = np.cos(angles / 2)
 
         dist_c_start = np.array([tracer.dist_c[0] for tracer in neighbours])
         w1 = self.dist_c[-1] < dist_c_start
