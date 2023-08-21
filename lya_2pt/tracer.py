@@ -201,7 +201,7 @@ class Tracer:
         neighbours = [tracer for tracer in neighbours if tracer.los_id != self.los_id]
 
         if not neighbours:
-            return [], np.array([])
+            return np.array([]), np.array([])
 
         # Compute angle between forests
         angles = get_angle_list(self, neighbours)
