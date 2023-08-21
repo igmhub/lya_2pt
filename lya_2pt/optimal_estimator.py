@@ -5,7 +5,6 @@ from scipy.interpolate import RegularGridInterpolator as RGI
 from scipy.sparse import coo_array
 
 import lya_2pt.global_data as globals
-from lya_2pt.tracer_utils import get_angle
 
 
 @njit
@@ -215,5 +214,7 @@ def compute_xi_and_fisher(healpix_id):
             tracer2.apply_invcov_to_deltas()
             compute_xi_and_fisher_pair(tracer1, tracer2, angle, xi_est, fisher_est)
             tracer2.release_inverse_covariance()
+
+        tracer1.release_inverse_covariance()
 
     return healpix_id, (xi_est, fisher_est)
