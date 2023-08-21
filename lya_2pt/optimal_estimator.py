@@ -167,7 +167,7 @@ def compute_xi_and_fisher_pair(
 
         fisher_est[bin1, unique_bins[i:]] += np.array([
             np.vdot(c_deriv_x_invcov2[rs, cs], invcov1_x_c_deriv[rs, cs])
-            for invcov1_x_c_deriv, cs in zip(invcov1_x_c_deriv_list[i:], col_slices)
+            for invcov1_x_c_deriv, cs in zip(invcov1_x_c_deriv_list[i:], col_slices[i:])
         ])
 
     return xi_est, fisher_est
