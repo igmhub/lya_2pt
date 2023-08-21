@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit
 from healpy import query_disc
 
-SMALL_ANGLE_CUT_OFF = 2./3600.*np.pi/180.  # 2 arcsec
+SMALL_ANGLE_CUT_OFF = 2. / 3600. * np.pi / 180.  # 2 arcsec
 
 
 def get_angle_list(tracer1, tracers2):
@@ -14,19 +14,15 @@ def get_angle_list(tracer1, tracers2):
     dec = np.array([t2.dec for t2 in tracers2])
 
     cos = x_cart * tracer1.x_cart + y_cart * tracer1.y_cart + z_cart * tracer1.z_cart
-    w = cos >= 1.
-    if w.sum() != 0:
-        cos[w] = 1.
-    w = cos <= -1.
-    if w.sum() != 0:
-        cos[w] = -1.
+    np.clip(cos, -1, 1, out=cos)
     angles = np.arccos(cos)
 
-    w = ((np.abs(ra - tracer1.ra) < SMALL_ANGLE_CUT_OFF) &
-         (np.abs(dec - tracer1.dec) < SMALL_ANGLE_CUT_OFF))
-    if w.sum() != 0:
-        angles[w] = np.sqrt((dec[w] - tracer1.dec)**2 +
-                            (np.cos(tracer1.dec) * (ra[w] - tracer1.ra))**2)
+    w = ((np.abs(ra - tracer1.ra) < SMALL_ANGLE_CUT_OFF)
+         & (np.abs(dec - tracer1.dec) < SMALL_ANGLE_CUT_OFF))
+    if np.any(w):
+        angles[w] = np.sqrt(
+            (dec[w] - tracer1.dec)**2 + (np.cos(tracer1.dec) * (ra[w] - tracer1.ra))**2
+        )
 
     return angles
 
