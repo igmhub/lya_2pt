@@ -160,12 +160,12 @@ def compute_xi_and_fisher_pair(
     invcov1_x_c_deriv_list = [c_deriv.T.dot(tracer1.invcov).T for c_deriv in c_deriv_list]
     s_slices = [np.s_[rmin:rmax] for (rmin, rmax) in rminmax_list]
 
-    for i, (bin1, c_deriv) in enumerate(zip(unique_bins, c_deriv_list)):
+    for i, (bin1, c_deriv, s) in enumerate(zip(unique_bins, c_deriv_list, s_slices)):
         c_deriv_x_invcov2 = c_deriv.dot(tracer2.invcov)
 
         fisher_est[bin1, unique_bins[i:]] += np.array([
             np.vdot(c_deriv_x_invcov2[s], invcov1_x_c_deriv[s])
-            for s, invcov1_x_c_deriv in zip(s_slices, invcov1_x_c_deriv_list[i:])
+            for invcov1_x_c_deriv in invcov1_x_c_deriv_list[i:]
         ])
 
     return xi_est, fisher_est
