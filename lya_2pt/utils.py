@@ -1,5 +1,5 @@
 import os
-from os import mkdir
+from os import makedirs
 from pathlib import Path
 
 import numpy as np
@@ -140,5 +140,4 @@ def check_dir(dir: Path):
         dir: Path
             Directory to check
     """
-    if not dir.is_dir():
-        mkdir(dir)
+    makedirs(dir, exist_ok=True)
