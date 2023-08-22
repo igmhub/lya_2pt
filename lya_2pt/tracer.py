@@ -136,6 +136,10 @@ class Tracer:
         self.invcov = None
         self.is_weighted = False
 
+    @property
+    def size(self):
+        return self.z.size
+
     # def add_neighbours(self, neighbours):
     #     """Add neighbours mask
 
@@ -296,7 +300,7 @@ class Tracer:
                                                    / self.sum_weights)
             self.term3_norm = (self.weights * self.logwave_term**2).sum()
 
-    def set_inverse_covariance(self, xi1d_interp):
+    def set_inverse_covariance(self, xi1d_interp, cont_order=2):
         if self.invcov is not None:
             return
 
@@ -305,10 +309,22 @@ class Tracer:
 
         delta_lambdas = wavelength[:, None] - wavelength[None, :]
         covariance = xi1d_interp((z_ij, delta_lambdas))
-        covariance[np.diag_indices(self.z.size)] += 1 / self.ivar
-        # covariance[np.diag_indices(tracer.z.size)] += 1 / tracer.weights
+        covariance[np.diag_indices(self.size)] += 1 / self.ivar
 
         self.invcov = np.linalg.inv(covariance)
+
+        if cont_order < 0:
+            return
+
+        template_matrix = np.vander(self.log_lambda, cont_order + 1)
+        U, s, _ = np.linalg.svd(template_matrix, full_matrices=False)
+
+        # Remove small singular valued vectors
+        w = s > 1e-6
+        U = U[:, w]  # shape = (self.size, cont_order + 1)
+        Y = self.invcov @ U
+        # Woodbury formula. Note that U and Y are not square matrices.
+        self.invcov -= Y @ np.linalg.inv(U.T @ Y) @ Y.T
 
     def release_inverse_covariance(self):
         self.invcov = None
