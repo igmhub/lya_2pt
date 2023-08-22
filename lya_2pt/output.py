@@ -185,8 +185,9 @@ class Output:
 
         results.close()
 
-    def write_optimal_cf(self, xi_est, fisher_est, output, global_config, settings,
-                         mpi_thread=None):
+    def write_optimal_cf(
+            self, xi_est, fisher_est, output, global_config, settings, mpi_rank=None
+    ):
         """Write computation output for the main healpix
 
         Arguments
@@ -198,8 +199,8 @@ class Output:
         Name of the read file, used to construct the output file
         """
         proc_string = ""
-        if mpi_thread is not None:
-            proc_string = "-" + str(mpi_thread)
+        if mpi_rank is not None:
+            proc_string = "-" + str(mpi_rank)
 
         filename = self.healpix_dir / f"opt-corr-mean{proc_string}.fits.gz"
 

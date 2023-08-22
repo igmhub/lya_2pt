@@ -303,7 +303,7 @@ class Interface:
 
         # TODO: add other computations
 
-    def write_results(self, mpi_thread=None):
+    def write_results(self, mpi_rank=None):
         if self.config['compute'].getboolean('compute-correlation', False):
             for healpix_id, result in self.xi_output.items():
                 self.output.write_cf_healpix(result, healpix_id, self.config, self.settings)
@@ -315,7 +315,7 @@ class Interface:
         if self.config['compute'].getboolean('compute-optimal-correlation', False):
             self.output.write_optimal_cf(
                 self.xi_est, self.fisher_est, self.optimal_xi_output, self.config, self.settings,
-                mpi_thread
+                mpi_rank
             )
 
         # TODO: add other modes
