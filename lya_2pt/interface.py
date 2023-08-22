@@ -7,7 +7,7 @@ import tqdm
 import lya_2pt.global_data as globals
 from lya_2pt.correlation import compute_xi
 from lya_2pt.distortion import compute_dmat
-from lya_2pt.optimal_estimator import compute_xi_and_fisher
+from lya_2pt.optimal_estimator import compute_xi_and_fisher, compute_num_pairs
 from lya_2pt.cosmo import Cosmology
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
 from lya_2pt.tracer2_reader import Tracer2Reader
@@ -120,7 +120,7 @@ class Interface:
         self.export = Export(
             config["export"], self.output.name, self.output.output_directory, self.num_cpu)
 
-    def read_tracers(self, files=None):
+    def read_tracers(self, files=None, mpi_rank=0):
         """Read the tracers
 
         Arguments
@@ -133,7 +133,9 @@ class Interface:
 
         if self.num_cpu > 1:
             with multiprocessing.Pool(processes=self.num_cpu) as pool:
-                results = list(tqdm.tqdm(pool.imap(self.read_tracer1, files), total=len(files)))
+                results = list(tqdm.tqdm(
+                    pool.imap(self.read_tracer1, files), total=len(files), position=mpi_rank
+                    ))
         else:
             results = [self.read_tracer1(file) for file in files]
 
@@ -220,7 +222,7 @@ class Interface:
         globals.counter = multiprocessing.Value('i', 0)
         globals.lock = multiprocessing.Lock()
 
-    def run(self, healpix_ids=None):
+    def run(self, healpix_ids=None, mpi_rank=0):
         """Run the computation
 
         This can include the correlation function, the distortion matrix,
@@ -278,9 +280,12 @@ class Interface:
             if self.num_cpu > 1:
                 context = multiprocessing.get_context('fork')
                 with context.Pool(processes=self.num_cpu) as pool:
+                    num_pairs = pool.map(compute_num_pairs, healpix_ids)
+                    healpix_ids = healpix_ids[np.argsort(num_pairs)[::-1]]
+
                     results = list(tqdm.tqdm(
                         pool.imap_unordered(compute_xi_and_fisher, healpix_ids),
-                        total=len(healpix_ids)
+                        total=len(healpix_ids), position=mpi_rank
                     ))
 
                 for hp_id, res in results:
@@ -298,7 +303,7 @@ class Interface:
 
         # TODO: add other computations
 
-    def write_results(self):
+    def write_results(self, mpi_rank=None):
         if self.config['compute'].getboolean('compute-correlation', False):
             for healpix_id, result in self.xi_output.items():
                 self.output.write_cf_healpix(result, healpix_id, self.config, self.settings)
@@ -309,6 +314,8 @@ class Interface:
 
         if self.config['compute'].getboolean('compute-optimal-correlation', False):
             self.output.write_optimal_cf(
-                self.xi_est, self.fisher_est, self.optimal_xi_output, self.config, self.settings)
+                self.xi_est, self.fisher_est, self.optimal_xi_output, self.config, self.settings,
+                mpi_rank
+            )
 
         # TODO: add other modes

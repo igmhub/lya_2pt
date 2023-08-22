@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import time
 from mpi4py import MPI
 from configparser import ConfigParser
 
@@ -43,11 +44,17 @@ def main():
         stop = int(start + num_tasks_per_proc)
 
     if mpi_rank == 0:
-        print('Starting computation...')
+        total_t1 = time.time()
+        print('Starting computation...', flush=True)
 
     lya2pt.read_tracers(lya2pt.files[start:stop])
-    lya2pt.run()
-    lya2pt.write_results()
+    lya2pt.run(mpi_rank=mpi_rank)
+    lya2pt.write_results(mpi_rank=mpi_rank)
+
+    if mpi_rank == 0:
+        total_t2 = time.time()
+        print(f'Total time: {(total_t2-total_t1):.3f} sec', flush=True)
+        print('Done', flush=True)
 
 
 if __name__ == '__main__':

@@ -183,7 +183,7 @@ class PiccaCosmo():
         H0 = 100.0
         SPEED_LIGHT = speed_of_light / 1000
 
-        print(f"Om={Om}, Or={Or}, wl={wl}")
+        # print(f"Om={Om}, Or={Or}, wl={wl}")
 
         # Ignore evolution of neutrinos from matter to radiation
         Ol = 1. - Ok - Om - Or

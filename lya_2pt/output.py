@@ -185,7 +185,9 @@ class Output:
 
         results.close()
 
-    def write_optimal_cf(self, xi_est, fisher_est, output, global_config, settings):
+    def write_optimal_cf(
+            self, xi_est, fisher_est, output, global_config, settings, mpi_rank=None
+    ):
         """Write computation output for the main healpix
 
         Arguments
@@ -196,7 +198,11 @@ class Output:
         file: str
         Name of the read file, used to construct the output file
         """
-        filename = self.healpix_dir / "optimal-correlation-all.fits.gz"
+        proc_string = ""
+        if mpi_rank is not None:
+            proc_string = "-" + str(mpi_rank)
+
+        filename = self.healpix_dir / f"opt-corr-mean{proc_string}.fits.gz"
 
         # save data
         output_fits = fitsio.FITS(filename, 'rw', clobber=True)
@@ -211,16 +217,22 @@ class Output:
             names=[correlation_name, "FISHER_MATRIX"],
             comment=['unnormalized correlation', 'Fisher matrix'],
             header=header,
-            extname='sum'
+            extname='MEAN_CORRELATION'
         )
-        # for healpix_id, result in output.items():
-        #     output_fits.write(
-        #         [result[0], result[1]],
-        #         names=[correlation_name, "FISHER_MATRIX"],
-        #         comment=['unnormalized correlation', 'Fisher matrix'],
-        #         header=header,
-        #         extname=str(healpix_id)
-        #     )
+
+        output_fits.close()
+
+        filename = self.healpix_dir / f"opt-corr-samples{proc_string}.fits.gz"
+        output_fits = fitsio.FITS(filename, 'rw', clobber=True)
+
+        for healpix_id, result in output.items():
+            output_fits.write(
+                [result[0], result[1]],
+                names=[correlation_name, "FISHER_MATRIX"],
+                comment=['unnormalized correlation', 'Fisher matrix'],
+                header=header,
+                extname=str(healpix_id)
+            )
 
         output_fits.close()
 

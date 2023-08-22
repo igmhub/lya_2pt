@@ -222,3 +222,22 @@ def compute_xi_and_fisher(healpix_id):
         tracer1.release_inverse_covariance()
 
     return healpix_id, (xi_est, fisher_est)
+
+
+def compute_num_pairs(healpix_id):
+    hp_neighs = [other_hp for other_hp in globals.healpix_neighbours[healpix_id]
+                 if other_hp in globals.tracers2]
+    hp_neighs += [healpix_id]
+
+    num_pairs = int(0)
+    for tracer1 in globals.tracers1[healpix_id]:
+        potential_neighbours = [tracer2 for hp in hp_neighs for tracer2 in globals.tracers2[hp]]
+        neighbours, _ = tracer1.get_neighbours(
+                potential_neighbours, globals.auto_flag,
+                globals.z_min, globals.z_max,
+                globals.rp_max, globals.rt_max
+            )
+
+        num_pairs += len(neighbours)
+
+    return num_pairs
