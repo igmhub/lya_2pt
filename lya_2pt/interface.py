@@ -19,7 +19,7 @@ from lya_2pt.export import Export
 accepted_options = [
     "input-nside", "output-nside", "num-cpu", "z_min", "z_max", "rp_min", "rp_max", "rt_max",
     "num_bins_rp", "num_bins_rt", "num_bins_rp_model", "num_bins_rt_model",
-    "rejection_fraction", "get-old-distortion"
+    "rejection_fraction", "get-old-distortion", "continuum-order", "seed"
 ]
 
 defaults = {
@@ -36,7 +36,9 @@ defaults = {
     "num_bins_rp_model": 50,
     "num_bins_rt_model": 50,
     "rejection_fraction": 0.99,
-    "get-old-distortion": True
+    "get-old-distortion": True,
+    "continuum-order": -1,
+    "seed": 0,
 }
 
 
@@ -99,6 +101,8 @@ class Interface:
         globals.num_bins_rt_model = self.settings.getint('num_bins_rt_model')
         globals.rejection_fraction = self.settings.getfloat('rejection_fraction')
         globals.get_old_distortion = self.settings.getboolean('get-old-distortion')
+        globals.continuum_order = self.settings.getint('continuum-order')
+        globals.seed = self.settings.getint('seed')
 
         self.input_nside = self.settings.getint("input-nside")
         self.output_nside = self.settings.getint("output-nside")
@@ -240,6 +244,8 @@ class Interface:
                 if id not in self.healpix_ids:
                     raise ValueError(f'HEALPix ID {id} not found. '
                                      f'Currently stored IDs: {self.healpix_ids}')
+
+            healpix_ids = np.array(healpix_ids)
 
         self.xi_output = {}
         if self.config['compute'].getboolean('compute-correlation', False):
