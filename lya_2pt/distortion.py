@@ -61,6 +61,7 @@ def compute_dmat(healpix_id):
             globals.rp_max, globals.rt_max
             )
 
+        np.random.seed(globals.seed)
         w = np.random.rand(neighbours.size) > globals.rejection_fraction
         num_pairs += neighbours.size
         num_pairs_used += w.sum()
