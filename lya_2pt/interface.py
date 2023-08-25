@@ -137,9 +137,11 @@ class Interface:
 
         if self.num_cpu > 1:
             with multiprocessing.Pool(processes=self.num_cpu) as pool:
-                results = list(tqdm.tqdm(
-                    pool.imap(self.read_tracer1, files), total=len(files), position=mpi_rank
-                    ))
+                if mpi_rank == 0:
+                    results = list(tqdm.tqdm(
+                        pool.imap(self.read_tracer1, files), total=len(files)))
+                else:
+                    results = list(pool.imap(self.read_tracer1, files))
         else:
             results = [self.read_tracer1(file) for file in files]
 
@@ -226,7 +228,7 @@ class Interface:
         globals.counter = multiprocessing.Value('i', 0)
         globals.lock = multiprocessing.Lock()
 
-    def run(self, healpix_ids=None, mpi_rank=0):
+    def run(self, healpix_ids=None, mpi_size=1, mpi_rank=0):
         """Run the computation
 
         This can include the correlation function, the distortion matrix,
@@ -287,12 +289,15 @@ class Interface:
                 context = multiprocessing.get_context('fork')
                 with context.Pool(processes=self.num_cpu) as pool:
                     num_pairs = pool.map(compute_num_pairs, healpix_ids)
-                    healpix_ids = healpix_ids[np.argsort(num_pairs)[::-1]]
+                    local_hp_ids = self.do_load_balance(healpix_ids, num_pairs, mpi_size, mpi_rank)
 
-                    results = list(tqdm.tqdm(
-                        pool.imap_unordered(compute_xi_and_fisher, healpix_ids),
-                        total=len(healpix_ids), position=mpi_rank
-                    ))
+                    if mpi_rank == 0:
+                        results = list(tqdm.tqdm(
+                            pool.imap_unordered(compute_xi_and_fisher, local_hp_ids),
+                            total=len(local_hp_ids),
+                        ))
+                    else:
+                        results = list(pool.imap_unordered(compute_xi_and_fisher, local_hp_ids))
 
                 for hp_id, res in results:
                     self.optimal_xi_output[hp_id] = res
@@ -325,3 +330,25 @@ class Interface:
             )
 
         # TODO: add other modes
+
+    def do_load_balance(self, healpix_ids, num_pairs, mpi_size=1, mpi_rank=0):
+        sort_idx = np.argsort(num_pairs)[::-1]
+        local_hp_ids = healpix_ids[sort_idx]
+        local_weights = np.array(num_pairs)[sort_idx]
+
+        if mpi_size > 1:
+            allocation = self.compute_balanced_chunks(local_weights, mpi_size)
+            local_hp_ids = local_hp_ids[allocation == mpi_rank]
+
+        return local_hp_ids
+
+    @staticmethod
+    def compute_balanced_chunks(weights, mpi_size):
+        allocation = np.zeros(weights.size, dtype=int)
+        proc_sums = np.zeros(mpi_size)
+        for i, w in enumerate(weights):
+            aloc_idx = proc_sums.argmin()
+            allocation[i] = aloc_idx
+            proc_sums[aloc_idx] += w
+
+        return allocation
