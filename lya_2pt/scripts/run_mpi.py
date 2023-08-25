@@ -34,23 +34,20 @@ def main():
                        f"{mpi_size} MPI processes. This is wasteful. "
                        "Please lower the numper of MPI processes.")
 
-    num_tasks_per_proc = len(lya2pt.files) // mpi_size
-    remainder = len(lya2pt.files) % mpi_size
-    if mpi_rank < remainder:
-        start = int(mpi_rank * (num_tasks_per_proc + 1))
-        stop = int(start + num_tasks_per_proc + 1)
-    else:
-        start = int(mpi_rank * num_tasks_per_proc + remainder)
-        stop = int(start + num_tasks_per_proc)
-
     if mpi_rank == 0:
         total_t1 = time.time()
-        print('Starting computation...', flush=True)
+        print('Reading tracers...', flush=True)
+    lya2pt.read_tracers(mpi_rank=mpi_rank)
 
-    lya2pt.read_tracers(lya2pt.files[start:stop])
-    lya2pt.run(mpi_rank=mpi_rank)
+    if mpi_rank == 0:
+        print('Starting computation...', flush=True)
+    lya2pt.run(mpi_size=mpi_size, mpi_rank=mpi_rank)
+
+    if mpi_rank == 0:
+        print('Writing results...', flush=True)
     lya2pt.write_results(mpi_rank=mpi_rank)
 
+    mpi_comm.Barrier()
     if mpi_rank == 0:
         total_t2 = time.time()
         print(f'Total time: {(total_t2-total_t1):.3f} sec', flush=True)
