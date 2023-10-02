@@ -193,9 +193,9 @@ def get_orthonormal_vectors_svd(log_lambda, weights, order):
     wsqrt = np.sqrt(weights)
     input_vectors_matrix = np.vander(log_lambda, order + 1).T * wsqrt
     Vh = np.linalg.svd(input_vectors_matrix, full_matrices=False)[2]
-    s = weights == 0
-    Vh[s] = 0
-    Vh[~s] /= wsqrt[s]
+    s = weights != 0
+    Vh[~s] = 0
+    Vh[s] /= wsqrt[s]
     return Vh
 
 
