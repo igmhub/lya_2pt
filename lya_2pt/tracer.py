@@ -2,7 +2,8 @@
 import numpy as np
 
 from lya_2pt.constants import ABSORBER_IGM
-from lya_2pt.tracer_utils import rebin, project_deltas, get_angle_list, gram_schmidt
+from lya_2pt.tracer_utils import (
+    rebin, project_deltas, get_angle_list, gram_schmidt, get_orthonormal_vectors_svd)
 
 
 class Tracer:
@@ -269,18 +270,24 @@ class Tracer:
             self.logwave_term = log_lambda - np.sum(log_lambda * weights) / self.sum_weights
             self.term3_norm = (weights * self.logwave_term**2).sum()
 
-    def project(self, old_projection=True):
+    def project(self, old_projection=True, use_svd=True):
         """Apply projection matrix to deltas"""
         assert not self.is_projected, "Tracer already projected"
+
         if old_projection:
             self.deltas = project_deltas(self.log_lambda, self.deltas, self.weights, self.order)
+            self.is_projected = True
+            return
+
+        if use_svd:
+            basis = get_orthonormal_vectors_svd(self.log_lambda, self.weights, self.order)
         else:
             basis = gram_schmidt(self.log_lambda, self.weights, self.order)
 
-            for b in basis:
-                self.deltas -= b * np.dot(b * self.weights, self.deltas)
+        proj_vec_mat = basis * self.weights
+        self.deltas -= basis.T.dot(proj_vec_mat.dot(self.deltas))
 
-            self.proj_vec_mat = (basis * self.weights).T
+        self.proj_vec_mat = proj_vec_mat.T
 
         self.is_projected = True
 
