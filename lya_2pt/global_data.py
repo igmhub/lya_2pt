@@ -23,4 +23,4 @@ num_bins_rt_model = None
 get_old_distortion = None
 rejection_fraction = None
 
-gamma_fun = None
+gamma_z_error = None

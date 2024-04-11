@@ -4,6 +4,7 @@ from numba import njit
 
 import lya_2pt.global_data as globals
 from lya_2pt.tracer_utils import get_angle
+from lya_2pt.utils import gen_gamma
 
 
 import pdb
@@ -71,9 +72,6 @@ def compute_xi(healpix_id):
             globals.rp_max, globals.rt_max
             )
 
-        ForkedPdb().set_trace()
-
-
         for tracer2 in neighbours:
             angle = get_angle(
                 tracer1.x_cart, tracer1.y_cart, tracer1.z_cart, tracer1.ra, tracer1.dec,
@@ -83,7 +81,8 @@ def compute_xi(healpix_id):
             compute_xi_pair(
                 tracer1.deltas, tracer1.weights, tracer1.z, tracer1.dist_c, tracer1.dist_m,
                 tracer2.deltas, tracer2.weights, tracer2.z, tracer2.dist_c, tracer2.dist_m,
-                angle, xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid
+                angle, xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid, 
+                tracer1.z_qso, tracer2.z_qso 
                 )
 
     # Normalize correlation and average coordinate grids
@@ -101,7 +100,8 @@ def compute_xi(healpix_id):
 def compute_xi_pair(
         deltas1, weights1, z1, dist_c1, dist_m1,
         deltas2, weights2, z2, dist_c2, dist_m2, angle,
-        xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid
+        xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid,
+        z_qso1,z_qso2
 ):
     sin_angle = np.sin(angle / 2)
     cos_angle = np.cos(angle / 2)
@@ -138,7 +138,8 @@ def compute_xi_pair(
             z_grid[bins] += (z1[i] + z2[j]) / 2 * weight12
             num_pairs_grid[bins] += 1
 
-            #gamma grid
-            #globals.gamma_fun
-
-            #gamma_grid[bins] += globals.gamma_fun[i] * globals.gamma_fun[j] * weight12     #GAMMA FUNCTION
+            #GAMMA FUNCTION
+            sigma_v = globals.gamma_z_error
+            lambda_rest_i = 1215.67 * (1 + z1) / (1 + z_qso1)
+            lambda_rest_j = 1215.67 * (1 + z2)/ (1 + z_qso2)
+            gamma_grid[bins] += gen_gamma(lambda_rest_i,sigma_v) * gen_gamma(lambda_rest_j,sigma_v) * weight12
