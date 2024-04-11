@@ -16,7 +16,7 @@ from lya_2pt.export import Export
 accepted_options = [
     "nside", "num-cpu", "z_min", "z_max", "rp_min", "rp_max", "rt_max",
     "num_bins_rp", "num_bins_rt", "num_bins_rp_model", "num_bins_rt_model",
-    "rejection_fraction", "get-old-distortion"
+    "rejection_fraction", "get-old-distortion",'gamma_z_error'
 ]
 
 defaults = {
@@ -32,7 +32,8 @@ defaults = {
     "num_bins_rp_model": 50,
     "num_bins_rt_model": 50,
     "rejection_fraction": 0.99,
-    "get-old-distortion": True
+    "get-old-distortion": True,
+    "gamma_z_error": 0
 }
 
 
