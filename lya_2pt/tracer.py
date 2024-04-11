@@ -75,7 +75,7 @@ class Tracer:
     project():
         Apply projection matrix to deltas
     """
-    def __init__(self, healpix_id, los_id, ra, dec, order,
+    def __init__(self, healpix_id, los_id, ra, dec, z_qso, order,
                  deltas, weights, log_lambda, z, need_distortion=False):
         """Initializes class instance
 
@@ -89,6 +89,8 @@ class Tracer:
             Line of sight's right ascension
         dec: float
             Line of sight's declination
+        z_qso: float
+            Background quasar redshift
         order: int
             Order of polynomial used for the continuum fitting
         deltas: array of float
@@ -108,6 +110,7 @@ class Tracer:
         self.los_id = los_id
         self.ra = ra
         self.dec = dec
+        self.z_qso = z_qso
         self.order = order
 
         self.x_cart = np.cos(ra) * np.cos(dec)
