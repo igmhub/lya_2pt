@@ -6,6 +6,21 @@ import lya_2pt.global_data as globals
 from lya_2pt.tracer_utils import get_angle
 
 
+import pdb
+class ForkedPdb(pdb.Pdb):
+    """A Pdb subclass that may be used
+    from a forked multiprocessing child
+
+    """
+    def interaction(self, *args, **kwargs):
+        _stdin = sys.stdin
+        try:
+            sys.stdin = open('/dev/stdin')
+            pdb.Pdb.interaction(self, *args, **kwargs)
+        finally:
+            sys.stdin = _stdin
+
+
 def compute_xi(healpix_id):
     """Compute correlation function
 
@@ -38,6 +53,7 @@ def compute_xi(healpix_id):
     rt_grid = np.zeros(total_size)
     z_grid = np.zeros(total_size)
     num_pairs_grid = np.zeros(total_size, dtype=np.int32)
+    gamma_grid = np.zeros(total_size)
 
     for tracer1 in globals.tracers1[healpix_id]:
         with globals.lock:
@@ -54,6 +70,9 @@ def compute_xi(healpix_id):
             globals.z_min, globals.z_max,
             globals.rp_max, globals.rt_max
             )
+
+        ForkedPdb().set_trace()
+
 
         for tracer2 in neighbours:
             angle = get_angle(
@@ -73,8 +92,9 @@ def compute_xi(healpix_id):
     rp_grid[w] /= weights_grid[w]
     rt_grid[w] /= weights_grid[w]
     z_grid[w] /= weights_grid[w]
+    gamma_grid[w] /= weights_grid[w]
 
-    return healpix_id, (xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid)
+    return healpix_id, (xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid, gamma_grid)
 
 
 @njit
@@ -117,3 +137,8 @@ def compute_xi_pair(
             rt_grid[bins] += rt * weight12
             z_grid[bins] += (z1[i] + z2[j]) / 2 * weight12
             num_pairs_grid[bins] += 1
+
+            #gamma grid
+            #globals.gamma_fun
+
+            #gamma_grid[bins] += globals.gamma_fun[i] * globals.gamma_fun[j] * weight12     #GAMMA FUNCTION

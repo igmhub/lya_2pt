@@ -95,6 +95,7 @@ class Interface:
         globals.num_bins_rt_model = self.settings.getint('num_bins_rt_model')
         globals.rejection_fraction = self.settings.getfloat('rejection_fraction')
         globals.get_old_distortion = self.settings.getboolean('get-old-distortion')
+        globals.gamma_fun = self.settings.getfloat("gamma_z_error")
 
         self.nside = self.settings.getint("nside")
         self.num_cpu = self.settings.getint("num-cpu")

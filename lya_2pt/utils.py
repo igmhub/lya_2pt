@@ -1,6 +1,7 @@
 import os
 from os import mkdir
 from pathlib import Path
+from astropy.table import Table
 
 import numpy as np
 
@@ -142,3 +143,44 @@ def check_dir(dir: Path):
     """
     if not dir.is_dir():
         mkdir(dir)
+
+
+def line_prof(A,mu,sig,wave):
+    return A*(1/(2*np.sqrt(np.pi)*sig))*np.exp(-0.5*(wave-mu)**2/sig**2)
+    
+def gen_cont(lrest,dv=1):
+    #tuning the amplitudes of peaks by fitting mocks with 250km/s error
+    amps=[30,1.5,1.5,0.5,1.5,1,1.5,5,25]
+    #emission line means
+    bs=[1025.7,1063,1073,1082,1084,1118,1128,1175,1215.6]
+    #tuning emission line default widths
+    cs=[10,5.5,3.5,5,5,4,4,7,15]
+    
+    fdv = np.exp(dv/3e5)    
+    cs = [np.sqrt(c**2+(b*(fdv-1))**2) for b,c in zip(bs,cs)]
+    line_props = Table({'amp':amps,'lambda_line':bs,'width':cs})
+          
+    #flux of smooth component
+    smooth_level = 1
+    scale_factor = 1 
+    
+    #gaussian peaks of emission lines onto smooth components
+    continuum = smooth_level
+    #lyb
+    continuum += line_prof(*list(line_props)[0],lrest)
+    continuum += line_prof(*list(line_props)[1],lrest)
+    continuum += line_prof(*list(line_props)[2],lrest)
+    continuum += line_prof(*list(line_props)[3],lrest)
+    continuum += line_prof(*list(line_props)[4],lrest)
+    continuum += line_prof(*list(line_props)[5],lrest)
+    continuum += line_prof(*list(line_props)[6],lrest)
+    #CIII]
+    continuum += line_prof(*list(line_props)[7],lrest)
+    #lya
+    continuum += line_prof(*list(line_props)[8],lrest)
+    
+    return continuum/scale_factor
+
+def gen_gamma(lrest,sigma_v):
+    gamma_fun = get_cont(lrest,sigma_v)/get_cont(lrest,0) - 1
+    return gamma_fun
