@@ -33,6 +33,7 @@ def read_from_image(hdul, absorption_line, healpix_id, need_distortion=False, pr
     los_id_array = hdul["METADATA"]["LOS_ID"][:]
     ra_array = hdul["METADATA"]["RA"][:]
     dec_array = hdul["METADATA"]["DEC"][:]
+    z_qso_array = hdul["METADATA"]["Z"][:]
     dwave = hdul["LAMBDA"].read_header()['DELTA_LAMBDA']
 
     deltas_array = hdul["DELTA"].read().astype(float)
@@ -52,10 +53,12 @@ def read_from_image(hdul, absorption_line, healpix_id, need_distortion=False, pr
             "Did not find LOGLAM or LAMBDA in delta file")
 
     tracers = np.empty(los_id_array.shape, dtype=Tracer)
-    for i, (los_id, ra, dec) in enumerate(zip(los_id_array, ra_array, dec_array)):
+    for i, (los_id, ra, dec, z_qso) in enumerate(
+        zip(los_id_array, ra_array, dec_array, z_qso_array)
+    ):
         mask = ~np.isnan(deltas_array[i])
         tracers[i] = Tracer(
-            healpix_id, los_id, ra, dec, projection_order, deltas_array[i][mask],
+            healpix_id, los_id, ra, dec, z_qso, projection_order, deltas_array[i][mask],
             weights_array[i][mask], log_lambda[mask], z[mask], need_distortion
             )
 
@@ -97,6 +100,7 @@ def read_from_hdu(hdul, absorption_line, healpix_id, need_distortion=False, proj
         los_id = header["LOS_ID"]
         ra = header['RA']
         dec = header['DEC']
+        z_qso = header['Z']
 
         delta = hdu["DELTA"][:].astype(float)
         weights = hdu["WEIGHT"][:].astype(float)
@@ -114,7 +118,7 @@ def read_from_hdu(hdul, absorption_line, healpix_id, need_distortion=False, proj
                 "Did not find LOGLAM or LAMBDA in delta file")
 
         tracers.append(Tracer(
-            healpix_id, los_id, ra, dec, projection_order, delta, weights,
+            healpix_id, los_id, ra, dec, z_qso, projection_order, delta, weights,
             log_lambda, z, need_distortion
             ))
 
