@@ -182,5 +182,5 @@ def gen_cont(lrest,dv=1):
     return continuum/scale_factor
 
 def gen_gamma(lrest,sigma_v):
-    gamma_fun = get_cont(lrest,sigma_v)/get_cont(lrest,0) - 1
+    gamma_fun = gen_cont(lrest,sigma_v)/gen_cont(lrest,0) - 1
     return gamma_fun
