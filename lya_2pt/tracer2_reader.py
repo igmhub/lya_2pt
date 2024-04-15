@@ -7,13 +7,14 @@ from lya_2pt import forest_healpix_reader
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
 from lya_2pt.utils import find_path, parse_config
 from lya_2pt.errors import ReaderException
+from lya_2pt import defaults
 
 # Read defaults from the healpix reader and add tracer2 specific options
-accepted_options = forest_healpix_reader.accepted_options
-accepted_options += []
+# accepted_options = forest_healpix_reader.accepted_options
+# accepted_options += []
 
-defaults = forest_healpix_reader.defaults
-defaults |= {}
+# defaults = forest_healpix_reader.defaults
+# defaults |= {}
 
 
 class Tracer2Reader:
@@ -44,7 +45,7 @@ class Tracer2Reader:
         Fiducial cosmology used to go from angles and redshift to distances
         """
         # parse configuration
-        reader_config = parse_config(config, defaults, accepted_options)
+        reader_config = parse_config(config, defaults.tracer_reader)
 
         self.tracers = {}
 

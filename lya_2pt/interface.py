@@ -2,38 +2,41 @@ import multiprocessing
 
 import numpy as np
 import tqdm
+from lyacosmo import AstropyCosmo, PiccaCosmo
 
 import lya_2pt.global_data as globals
 from lya_2pt.correlation import compute_xi
 from lya_2pt.distortion import compute_dmat
-from lya_2pt.cosmo import Cosmology
+# from lya_2pt.cosmo import Cosmology
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
 from lya_2pt.tracer2_reader import Tracer2Reader
 from lya_2pt.utils import find_path, parse_config, compute_ang_max
 from lya_2pt.output import Output
 from lya_2pt.export import Export
+from lya_2pt import defaults
 
-accepted_options = [
-    "nside", "num-cpu", "z_min", "z_max", "rp_min", "rp_max", "rt_max",
-    "num_bins_rp", "num_bins_rt", "num_bins_rp_model", "num_bins_rt_model",
-    "rejection_fraction", "get-old-distortion"
-]
 
-defaults = {
-    "nside": 16,
-    "num-cpu": 1,
-    "z_min": 0,
-    "z_max": 10,
-    "rp_min": 0,
-    "rp_max": 200,
-    "rt_max": 200,
-    "num_bins_rp": 50,
-    "num_bins_rt": 50,
-    "num_bins_rp_model": 50,
-    "num_bins_rt_model": 50,
-    "rejection_fraction": 0.99,
-    "get-old-distortion": True
-}
+# accepted_options = [
+#     "nside", "num-cpu", "z_min", "z_max", "rp_min", "rp_max", "rt_max",
+#     "num_bins_rp", "num_bins_rt", "num_bins_rp_model", "num_bins_rt_model",
+#     "rejection_fraction", "get-old-distortion"
+# ]
+
+# defaults = {
+#     "nside": 16,
+#     "num-cpu": 1,
+#     "z_min": 0,
+#     "z_max": 10,
+#     "rp_min": 0,
+#     "rp_max": 200,
+#     "rt_max": 200,
+#     "num_bins_rp": 50,
+#     "num_bins_rt": 50,
+#     "num_bins_rp_model": 50,
+#     "num_bins_rt_model": 50,
+#     "rejection_fraction": 0.99,
+#     "get-old-distortion": True
+# }
 
 
 class Interface:
@@ -79,11 +82,23 @@ class Interface:
         """
         self.config = config
 
-        # intialize cosmology
-        self.cosmo = Cosmology(config["cosmology"])
+        # Intialize cosmology
+        cosmo_config = parse_config(config["cosmology"], defaults.cosmo)
+        if cosmo_config.getboolean("use-picca-cosmo"):
+            self.cosmo = PiccaCosmo(
+                cosmo_config.getfloat('omega_m'), cosmo_config.getfloat('omega_k'),
+                cosmo_config.getfloat('omega_r'), cosmo_config.getfloat('w0')
+            )
+        else:
+            self.cosmo = AstropyCosmo(
+                cosmo_config.getfloat('omega_m'), cosmo_config.getfloat('omega_k'),
+                cosmo_config.getfloat('omega_r'), cosmo_config.getfloat('w0'),
+                cosmo_config.getfloat('hubble-constant'), cosmo_config.getboolean('use-h-units'),
+            )
+        # self.cosmo = Cosmology(config["cosmology"])
 
         # parse config
-        self.settings = parse_config(config["settings"], defaults, accepted_options)
+        self.settings = parse_config(config["settings"], defaults.settings)
         globals.z_min = self.settings.getfloat("z_min")
         globals.z_max = self.settings.getfloat("z_max")
         globals.rp_min = self.settings.getfloat('rp_min')

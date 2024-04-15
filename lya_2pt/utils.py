@@ -8,7 +8,7 @@ import lya_2pt
 from lya_2pt.errors import ParserError
 
 
-def parse_config(config, defaults, accepted_options):
+def parse_config(config, defaults):
     """Parse the given configuration
 
     Check that all required variables are present
@@ -22,9 +22,6 @@ def parse_config(config, defaults, accepted_options):
     defaults: dict
     The default options for the given config section
 
-    accepted_options: list of str
-    The accepted keys for the given config section
-
     Return
     ------
     config: configparser.SectionProxy
@@ -35,17 +32,11 @@ def parse_config(config, defaults, accepted_options):
         if key not in config:
             config[key] = str(value)
 
-    # make sure all the required variables are present
-    for key in accepted_options:
-        if key not in config:
-            raise ParserError(f"Missing option {key}")
-
     # check that all arguments are valid
     for key in config:
-        if key not in accepted_options:
+        if key not in defaults:
             raise ParserError(
-                f"Unrecognised option. Found: '{key}'. Accepted options are "
-                f"{accepted_options}")
+                f"Unrecognised option. Found: '{key}'. Accepted options are {defaults.keys()}")
 
     return config
 

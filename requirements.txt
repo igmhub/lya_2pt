@@ -3,6 +3,7 @@ scipy
 astropy
 healpy
 fitsio
+lyacosmo
 numba
 setuptools
 gitpython

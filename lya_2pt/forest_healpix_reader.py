@@ -6,23 +6,24 @@ from lya_2pt.constants import ACCEPTED_BLINDING_STRATEGIES
 from lya_2pt.errors import ReaderException
 from lya_2pt.utils import parse_config
 from lya_2pt.read_io import read_from_image, read_from_hdu
+from lya_2pt import defaults
 
-accepted_options = [
-    "input-dir", "tracer-type", "absorption-line", "project-deltas",
-    "projection-order", "use-old-projection", "rebin",
-    "redshift-evolution", "reference-redshift"
-]
+# accepted_options = [
+#     "input-dir", "tracer-type", "absorption-line", "project-deltas",
+#     "projection-order", "use-old-projection", "rebin",
+#     "redshift-evolution", "reference-redshift"
+# ]
 
-defaults = {
-    "tracer-type": "continuous",
-    "absorption-line": "LYA",
-    "project-deltas": True,
-    "projection-order": 1,
-    "use-old-projection": True,
-    "rebin": 1,
-    "redshift-evolution": 2.9,
-    "reference-redshift": 2.25,
-}
+# defaults = {
+#     "tracer-type": "continuous",
+#     "absorption-line": "LYA",
+#     "project-deltas": True,
+#     "projection-order": 1,
+#     "use-old-projection": True,
+#     "rebin": 1,
+#     "redshift-evolution": 2.9,
+#     "reference-redshift": 2.25,
+# }
 
 
 class ForestHealpixReader:
@@ -73,7 +74,7 @@ class ForestHealpixReader:
         ReaderException if the blinding strategy is not valid
         """
         # parse configuration
-        reader_config = parse_config(config, defaults, accepted_options)
+        reader_config = parse_config(config, defaults.tracer_reader)
         self.healpix_id = int(file.name.split("delta-")[-1].split(".fits")[0])
 
         # extract parameters from config

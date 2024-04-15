@@ -3,16 +3,17 @@ import numpy as np
 from multiprocessing import Pool
 
 from lya_2pt.utils import parse_config
+from lya_2pt import defaults
 
-accepted_options = [
-    "export-correlation", "export-distortion", "smooth-covariance"
-]
+# accepted_options = [
+#     "export-correlation", "export-distortion", "smooth-covariance"
+# ]
 
-defaults = {
-    "export-correlation": False,
-    "export-distortion": False,
-    "smooth-covariance": True,
-}
+# defaults = {
+#     "export-correlation": False,
+#     "export-distortion": False,
+#     "smooth-covariance": True,
+# }
 
 
 class Export:
@@ -22,7 +23,7 @@ class Export:
     Writes final correlation
     """
     def __init__(self, config, name, output_directory, num_cpu):
-        self.config = parse_config(config, defaults, accepted_options)
+        self.config = parse_config(config, defaults.export)
 
         self.num_cpu = num_cpu
         self.name = name
