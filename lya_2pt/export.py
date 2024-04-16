@@ -88,6 +88,12 @@ class Export:
         self.z_grid = np.sum(results[:, 4, :] * self.weights, axis=0)
         self.num_pairs = np.sum(results[:, 5, :], axis=0)
 
+        #gamma terms
+        self.gamma_gamma = results[:, 6, :]
+        self.delta_gamma = results[:, 7, :]
+        self.mean_gamma_gamma = np.sum(self.gamma_gamma * self.weights, axis=0)
+        self.mean_delta_gamma = np.sum(self.delta_gamma * self.weights, axis=0)
+
         self.sum_weights = np.sum(self.weights, axis=0)
         w = self.sum_weights > 0
         self.mean_correlation[w] /= self.sum_weights[w]
@@ -95,6 +101,10 @@ class Export:
         self.r_trans[w] /= self.sum_weights[w]
         self.z_grid[w] /= self.sum_weights[w]
 
+        #gamma terms
+        self.mean_gamma_gamma[w] /= self.sum_weights[w]
+        self.mean_delta_gamma[w] /= self.sum_weights[w]
+    
     def _read_correlation(self, file):
         with fitsio.FITS(file) as hdul:
             rp = hdul[1]['R_PAR'][:]
@@ -105,8 +115,10 @@ class Export:
             # TODO implement blinding support
             correlation = hdul[2]['CORRELATION'][:]
             weights = hdul[2]['WEIGHT_SUM'][:]
+            gamma_gamma = hdul[2]['GAMMA_GAMMA'][:]
+            delta_gamma = hdul[2]['DELTA_GAMMA'][:]
 
-        return correlation, weights, rp, rt, z, num_pairs
+        return correlation, weights, rp, rt, z, num_pairs, gamma_gamma, delta_gamma
 
     def read_distortion(self):
         files = np.array(list(self.healpix_dir.glob('distortion*fits*')))
@@ -263,11 +275,13 @@ class Export:
         }]
 
         comment = ['R-parallel', 'R-transverse', 'Redshift', 'Correlation',
-                   'Covariance matrix', 'Distortion matrix', 'Number of pairs']
+                   'Covariance matrix', 'Distortion matrix', 'Number of pairs',
+                   'gamma_gamma term','delta_gamma term']
         results.write(
             [self.r_par, self.r_trans, self.z_grid, self.mean_correlation,
-             self.covariance, distortion, self.num_pairs],
-            names=['RP', 'RT', 'Z', 'DA', 'CO', 'DM', 'NB'],
+             self.covariance, distortion, self.num_pairs, self.mean_gamma_gamma,
+             self.mean_delta_gamma],
+            names=['RP', 'RT', 'Z', 'DA', 'CO', 'DM', 'NB','GG','DG'],
             comment=comment,
             header=header,
             extname='COR'

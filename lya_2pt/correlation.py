@@ -54,7 +54,10 @@ def compute_xi(healpix_id):
     rt_grid = np.zeros(total_size)
     z_grid = np.zeros(total_size)
     num_pairs_grid = np.zeros(total_size, dtype=np.int32)
+
+    #init gamma auto and cross arrays
     gamma_grid = np.zeros(total_size)
+    delta_gamma_grid = np.zeros(total_size)
 
     sigma_v = globals.gamma_z_error
 
@@ -92,8 +95,8 @@ def compute_xi(healpix_id):
             compute_xi_pair(
                 tracer1.deltas, tracer1.weights, tracer1.z, tracer1.dist_c, tracer1.dist_m,
                 tracer2.deltas, tracer2.weights, tracer2.z, tracer2.dist_c, tracer2.dist_m,
-                angle, xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid, gamma_grid,
-                gamma_1, gamma_2
+                angle, xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid,
+                gamma_grid, delta_gamma_grid, gamma_1, gamma_2
                 )
 
     # Normalize correlation and average coordinate grids
@@ -102,17 +105,20 @@ def compute_xi(healpix_id):
     rp_grid[w] /= weights_grid[w]
     rt_grid[w] /= weights_grid[w]
     z_grid[w] /= weights_grid[w]
-    gamma_grid[w] /= weights_grid[w]
 
-    return healpix_id, (xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid, gamma_grid)
+    #normalise gamma cross and auto terms
+    gamma_grid[w] /= weights_grid[w]
+    delta_gamma_grid[w] /= weights_grid[w]
+
+    return healpix_id, (xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid, gamma_grid, delta_gamma_grid)
 
 
 @njit
 def compute_xi_pair(
         deltas1, weights1, z1, dist_c1, dist_m1,
         deltas2, weights2, z2, dist_c2, dist_m2, angle,
-        xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid, gamma_grid,
-        gamma_1,gamma_2
+        xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid, 
+        gamma_grid, delta_gamma_grid, gamma_1, gamma_2
 ):
     sin_angle = np.sin(angle / 2)
     cos_angle = np.cos(angle / 2)
@@ -149,5 +155,7 @@ def compute_xi_pair(
             z_grid[bins] += (z1[i] + z2[j]) / 2 * weight12
             num_pairs_grid[bins] += 1
 
+            #<gamma delta>
+            delta_gamma_grid[bins] += gamma_1[i] * deltas2[j] * weight12
             #<gamma gamma>
             gamma_grid[bins] += gamma_1[i] * gamma_2[j] * weight12

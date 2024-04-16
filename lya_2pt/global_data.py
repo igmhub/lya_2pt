@@ -23,4 +23,6 @@ num_bins_rt_model = None
 get_old_distortion = None
 rejection_fraction = None
 
-gamma_z_error = None
+gamma_z_error = 0
+measured_gamma_interp = None
+

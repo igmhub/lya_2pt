@@ -7,6 +7,8 @@ import numpy as np
 
 import lya_2pt
 from lya_2pt.errors import ParserError
+import lya_2pt.global_data as globals
+
 
 
 def parse_config(config, defaults, accepted_options):
@@ -148,7 +150,7 @@ def check_dir(dir: Path):
 def line_prof(A,mu,sig,wave):
     return A*(1/(2*np.sqrt(np.pi)*sig))*np.exp(-0.5*(wave-mu)**2/sig**2)
     
-def gen_cont(lrest,dv=1):
+def gen_cont(lrest,dv=250):
     #tuning the amplitudes of peaks by fitting mocks with 250km/s error
     amps=[30,1.5,1.5,0.5,1.5,1,1.5,5,25]
     #emission line means
@@ -182,5 +184,11 @@ def gen_cont(lrest,dv=1):
     return continuum/scale_factor
 
 def gen_gamma(lrest,sigma_v):
-    gamma_fun = gen_cont(lrest,sigma_v)/gen_cont(lrest,0) - 1
-    return gamma_fun
+    if globals.measured_gamma_interp is not None:
+        interpo = globals.measured_gamma_interp
+        #print('Using gamma interpolator')
+        return interpo(lrest)
+    else:
+        gamma_fun = gen_cont(lrest,sigma_v)/gen_cont(lrest,0) - 1
+        #print(f'Running with gamma = {sigma_v}')
+        return gamma_fun

@@ -12,11 +12,12 @@ from lya_2pt.tracer2_reader import Tracer2Reader
 from lya_2pt.utils import find_path, parse_config, compute_ang_max
 from lya_2pt.output import Output
 from lya_2pt.export import Export
+import scipy.interpolate as spi
 
 accepted_options = [
     "nside", "num-cpu", "z_min", "z_max", "rp_min", "rp_max", "rt_max",
     "num_bins_rp", "num_bins_rt", "num_bins_rp_model", "num_bins_rt_model",
-    "rejection_fraction", "get-old-distortion",'gamma_z_error'
+    "rejection_fraction", "get-old-distortion",'gamma_z_error','measured_gamma'
 ]
 
 defaults = {
@@ -33,7 +34,8 @@ defaults = {
     "num_bins_rt_model": 50,
     "rejection_fraction": 0.99,
     "get-old-distortion": True,
-    "gamma_z_error": 0
+    "gamma_z_error": 0,
+    "measured_gamma": None
 }
 
 
@@ -97,6 +99,12 @@ class Interface:
         globals.rejection_fraction = self.settings.getfloat('rejection_fraction')
         globals.get_old_distortion = self.settings.getboolean('get-old-distortion')
         globals.gamma_z_error = self.settings.getfloat("gamma_z_error")
+        
+        measured_gamma_file = self.settings.get("measured_gamma")
+        if measured_gamma_file != 'None':
+            measured_gamma_file_gamma = np.load(measured_gamma_file)['gamma']
+            measured_gamma_file_wave = np.load(measured_gamma_file)['restwave']
+            globals.measured_gamma_interp = spi.interp1d(measured_gamma_file_wave,measured_gamma_file_gamma)
 
         self.nside = self.settings.getint("nside")
         self.num_cpu = self.settings.getint("num-cpu")

@@ -97,9 +97,9 @@ class Output:
             correlation_name += "_BLIND"
 
         results.write(
-            [output[0], output[1], output[6]],
-            names=[correlation_name, "WEIGHT_SUM", 'GAMMA_GAMMA'],
-            comment=['unnormalized correlation', 'Sum of weight','gamma autocorrelation'],
+            [output[0], output[1], output[6],output[7]],
+            names=[correlation_name, "WEIGHT_SUM", 'GAMMA_GAMMA','DELTA_GAMMA'],
+            comment=['unnormalized correlation', 'Sum of weight','gamma autocorrelation','delta gamma cross'],
             header=header2,
             extname='CORRELATION'
         )
