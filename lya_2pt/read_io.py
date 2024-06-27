@@ -97,7 +97,11 @@ def read_from_hdu(hdul, absorption_line, healpix_id, need_distortion=False, proj
     ReaderException if both LOGLAM and LAMBDA extensions are not
     in the HDU list
     """
-    dwave = hdul[1].read_header()['DELTA_LAMBDA']
+    header = hdul[1].read_header()
+    if 'DELTA_LAMBDA' in header:
+        dwave = ['DELTA_LAMBDA']
+    else:
+        dwave = None
 
     tracers = []
     wave_solution = None

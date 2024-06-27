@@ -112,6 +112,7 @@ class ForestHealpixReader:
         rebin_factor = reader_config.getint("rebin")
         use_ivar = reader_config.getboolean("use-ivar")
         if rebin_factor > 1:
+            assert self.dwave is not None, "Rebinning does not work with old delta files"
             for tracer in self.tracers:
                 tracer.rebin(rebin_factor, self.dwave, absorption_line, use_ivar=use_ivar)
 
