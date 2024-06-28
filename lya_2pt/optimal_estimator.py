@@ -215,9 +215,13 @@ def compute_xi_and_fisher(healpix_id):
         tracer1.set_inverse_covariance(xi1d_interp, globals.continuum_order)
         tracer1.apply_invcov_to_deltas()
 
-        np.random.seed(globals.seed)
-        w = np.random.rand(neighbours.size) > globals.rejection_fraction
-        for tracer2, angle in zip(neighbours[w], angles[w]):
+        if globals.rejection_fraction < 1:
+            np.random.seed(tracer1.los_id)
+            w = np.random.rand(neighbours.size) > globals.rejection_fraction
+            neighbours = neighbours[w]
+            angles = angles[w]
+
+        for tracer2, angle in zip(neighbours, angles):
             tracer2.set_inverse_covariance(xi1d_interp, globals.continuum_order)
             tracer2.apply_invcov_to_deltas()
             compute_xi_and_fisher_pair(tracer1, tracer2, angle, xi_est, fisher_est)
