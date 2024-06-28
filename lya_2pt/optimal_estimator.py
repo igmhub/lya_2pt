@@ -55,7 +55,7 @@ def window_squared_angstrom(k, delta_lambda=2.4, R=0.8):
     return np.exp(-k**2 * R**2) * np.sinc(k * delta_lambda / 2 / np.pi)**2
 
 
-def build_xi1d(z1=1.8, z2=4., nz=200, lambda_max=2048):
+def build_xi1d(z1=1.8, z2=4., nz=50, lambda_max=2048):
     z = np.linspace(z1, z2, nz)
 
     r, dlambda = np.linspace(-lambda_max, lambda_max, int(10 * lambda_max) + 1, retstep=True)
@@ -68,7 +68,7 @@ def build_xi1d(z1=1.8, z2=4., nz=200, lambda_max=2048):
     xi_wwindow = np.fft.irfft(fid_pk_angstrom * window_squared_angstrom(k), n=r.size) / dlambda
     xi_wwindow = np.fft.fftshift(xi_wwindow, axes=1)
 
-    return RGI((z, r), xi_wwindow, method='cubic', bounds_error=False)
+    return RGI((z, r), xi_wwindow, method='linear', bounds_error=False)
 
 
 def get_xi_bins(tracer1, tracer2, angle):
@@ -149,26 +149,25 @@ def compute_xi_and_fisher_pair(
 ):
     bins = get_xi_bins_t(tracer1, tracer2, angle)
     unique_bins, c_deriv_list, idx_minmax_list = build_deriv(bins)
-    n_unique_bins = unique_bins.size
 
     # deltas are weighted before this function is called
-    xi_est[unique_bins] += np.fromiter((
+    xi_est[unique_bins] += np.array([
         2 * np.dot(tracer1.deltas, c_deriv.dot(tracer2.deltas)) for c_deriv in c_deriv_list
-    ), float, n_unique_bins)
+    ])
 
     invcov1_x_c_deriv_list = [c_deriv.T.dot(tracer1.invcov).T for c_deriv in c_deriv_list]
     row_slices = [np.s_[rmin:rmax] for (rmin, rmax, _, _) in idx_minmax_list]
     col_slices = [np.s_[cmin:cmax] for (_, _, cmin, cmax) in idx_minmax_list]
 
     for i, (bin1, c_deriv, rs) in enumerate(zip(unique_bins, c_deriv_list, row_slices)):
-        c_deriv_x_invcov2 = c_deriv[rs].dot(tracer2.invcov)
+        c_deriv_x_invcov2 = c_deriv.dot(tracer2.invcov)
 
-        fisher_est[bin1, unique_bins[i:]] += np.fromiter((
-            np.vdot(c_deriv_x_invcov2[:, cs], invcov1_x_c_deriv[rs, cs])
+        fisher_est[bin1, unique_bins[i:]] += np.array([
+            np.vdot(c_deriv_x_invcov2[rs, cs], invcov1_x_c_deriv[rs, cs])
             for invcov1_x_c_deriv, cs in zip(invcov1_x_c_deriv_list[i:], col_slices[i:])
-        ), float, n_unique_bins - i)
+        ])
 
-    # return xi_est, fisher_est
+    return xi_est, fisher_est
 
 
 def compute_xi_and_fisher(healpix_id):
