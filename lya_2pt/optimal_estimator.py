@@ -212,7 +212,7 @@ def compute_xi_and_fisher(healpix_id):
         tracer1.set_inverse_covariance(xi1d_interp, globals.continuum_order)
         tracer1.apply_invcov_to_deltas()
 
-        if globals.rejection_fraction < 1:
+        if globals.rejection_fraction > 0:
             np.random.seed(tracer1.los_id)
             w = np.random.rand(neighbours.size) > globals.rejection_fraction
             neighbours = neighbours[w]
