@@ -300,7 +300,7 @@ class Tracer:
                                                    / self.sum_weights)
             self.term3_norm = (self.weights * self.logwave_term**2).sum()
 
-    def set_inverse_covariance(self, xi1d_interp, cont_order=2):
+    def set_inverse_covariance(self, xi1d_interp, cont_order=1):
         if self.invcov is not None:
             return
 

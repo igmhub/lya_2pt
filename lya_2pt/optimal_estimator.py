@@ -230,7 +230,7 @@ def compute_xi_and_fisher(healpix_id, eboss=True):
             globals.rp_max, globals.rt_max
         )
 
-        tracer1.set_inverse_covariance(xi1d_interp, globals.continuum_order)
+        tracer1.set_inverse_covariance(xi1d_interp, globals.cont_marg_order)
         tracer1.apply_invcov_to_deltas()
 
         if globals.rejection_fraction > 0:
@@ -240,7 +240,7 @@ def compute_xi_and_fisher(healpix_id, eboss=True):
             angles = angles[w]
 
         for tracer2, angle in zip(neighbours, angles):
-            tracer2.set_inverse_covariance(xi1d_interp, globals.continuum_order)
+            tracer2.set_inverse_covariance(xi1d_interp, globals.cont_marg_order)
             tracer2.apply_invcov_to_deltas()
             compute_xi_and_fisher_pair(tracer1, tracer2, angle, xi_est, fisher_est)
             tracer2.release_inverse_covariance()

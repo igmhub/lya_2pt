@@ -19,7 +19,7 @@ from lya_2pt.export import Export
 accepted_options = [
     "input-nside", "output-nside", "num-cpu", "z_min", "z_max", "rp_min", "rp_max", "rt_max",
     "num_bins_rp", "num_bins_rt", "num_bins_rp_model", "num_bins_rt_model",
-    "rejection_fraction", "get-old-distortion", "continuum-order", "seed"
+    "rejection_fraction", "get-old-distortion", "continuum-marginalization-order", "seed"
 ]
 
 defaults = {
@@ -37,7 +37,7 @@ defaults = {
     "num_bins_rt_model": 50,
     "rejection_fraction": 0.99,
     "get-old-distortion": True,
-    "continuum-order": -1,
+    "continuum-marginalization-order": -1,
     "seed": 0,
 }
 
@@ -101,7 +101,7 @@ class Interface:
         globals.num_bins_rt_model = self.settings.getint('num_bins_rt_model')
         globals.rejection_fraction = self.settings.getfloat('rejection_fraction')
         globals.get_old_distortion = self.settings.getboolean('get-old-distortion')
-        globals.continuum_order = self.settings.getint('continuum-order')
+        globals.cont_marg_order = self.settings.getint('continuum-marginalization-order')
         globals.seed = self.settings.getint('seed')
 
         self.input_nside = self.settings.getint("input-nside")
