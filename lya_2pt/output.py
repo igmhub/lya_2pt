@@ -1,4 +1,5 @@
 import fitsio
+import numpy as np
 
 from lya_2pt.utils import check_dir, parse_config, find_path
 
@@ -225,14 +226,15 @@ class Output:
         filename = self.healpix_dir / f"opt-corr-samples{proc_string}.fits"
         output_fits = fitsio.FITS(filename, 'rw', clobber=True)
 
-        for healpix_id, result in output.items():
-            output_fits.write(
-                [result[0], result[1]],
-                names=[correlation_name, "FISHER_MATRIX"],
-                comment=['unnormalized correlation', 'Fisher matrix'],
-                header=header,
-                extname=str(healpix_id)
-            )
+        correlation_samples = np.array([result for result in output.values()])
+
+        output_fits.write(
+            [correlation_samples],
+            names=[correlation_name],
+            comment=['unnormalized correlation'],
+            header=header,
+            extname='SAMPLES'
+        )
 
         output_fits.close()
 

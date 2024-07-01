@@ -300,12 +300,12 @@ class Interface:
                         results = list(pool.imap_unordered(compute_xi_and_fisher, local_hp_ids))
 
                 for hp_id, res in results:
-                    self.optimal_xi_output[hp_id] = res
+                    self.optimal_xi_output[hp_id] = res[0]
                     self.xi_est += res[0]
                     self.fisher_est += res[1]
             else:
                 for healpix_id in healpix_ids:
-                    self.optimal_xi_output[healpix_id] = compute_xi_and_fisher(healpix_id)[1]
+                    self.optimal_xi_output[healpix_id] = compute_xi_and_fisher(healpix_id)[1][0]
 
                     self.xi_est += self.optimal_xi_output[healpix_id][0]
                     self.fisher_est += self.optimal_xi_output[healpix_id][1]
