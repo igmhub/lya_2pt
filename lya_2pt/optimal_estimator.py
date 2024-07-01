@@ -71,6 +71,24 @@ def build_xi1d(z1=1.8, z2=4., nz=50, lambda_max=2048):
     return RGI((z, r), xi_wwindow, method='linear', bounds_error=False)
 
 
+def build_xi1d_eboss(z1=1.8, z2=4., nz=50, lambda_max=2048):
+    z = np.linspace(z1, z2, nz)
+
+    r, dlambda = np.linspace(-lambda_max, lambda_max, int(10 * lambda_max) + 1, retstep=True)
+    k = np.fft.rfftfreq(r.size, d=dlambda) * 2 * np.pi
+
+    kk, zz = np.meshgrid(k, z)
+    c_kms = speed_of_light / 1000
+    A2kms = 1215.67 * (1 + zz) / c_kms
+
+    fid_pk_angstrom = fiducial_Pk_angstrom(kk, zz)
+    window = window_squared_angstrom(kk, A2kms * 207.0, A2kms * 69.0)
+    xi_wwindow = np.fft.irfft(fid_pk_angstrom * window, n=r.size) / dlambda
+    xi_wwindow = np.fft.fftshift(xi_wwindow, axes=1)
+
+    return RGI((z, r), xi_wwindow, method='linear', bounds_error=False)
+
+
 def get_xi_bins(tracer1, tracer2, angle):
     rp = np.abs(np.subtract.outer(tracer1.dist_c, tracer2.dist_c) * np.cos(angle / 2))
     rt = np.add.outer(tracer1.dist_m, tracer2.dist_m) * np.sin(angle / 2)
@@ -170,7 +188,7 @@ def compute_xi_and_fisher_pair(
     return xi_est, fisher_est
 
 
-def compute_xi_and_fisher(healpix_id):
+def compute_xi_and_fisher(healpix_id, eboss=True):
     """Compute correlation function
 
     Parameters
@@ -198,7 +216,10 @@ def compute_xi_and_fisher(healpix_id):
 
     xi_est = np.zeros(total_size)
     fisher_est = np.zeros((total_size, total_size))
-    xi1d_interp = build_xi1d()
+    if eboss:
+        xi1d_interp = build_xi1d_eboss()
+    else:
+        xi1d_interp = build_xi1d()
 
     for tracer1 in globals.tracers1[healpix_id]:
         potential_neighbours = [tracer2 for hp in hp_neighs for tracer2 in globals.tracers2[hp]]
