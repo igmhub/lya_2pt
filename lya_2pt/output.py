@@ -164,7 +164,7 @@ class Output:
         file: str
         Name of the read file, used to construct the output file
         """
-        filename = self.healpix_dir / f"optimal-correlation-{healpix_id}.fits.gz"
+        filename = self.healpix_dir / f"optimal-correlation-{healpix_id}.fits"
 
         # save data
         results = fitsio.FITS(filename, 'rw', clobber=True)
@@ -202,7 +202,7 @@ class Output:
         if mpi_rank is not None:
             proc_string = "-" + str(mpi_rank)
 
-        filename = self.healpix_dir / f"opt-corr-mean{proc_string}.fits.gz"
+        filename = self.healpix_dir / f"opt-corr-mean{proc_string}.fits"
 
         # save data
         output_fits = fitsio.FITS(filename, 'rw', clobber=True)
@@ -222,7 +222,7 @@ class Output:
 
         output_fits.close()
 
-        filename = self.healpix_dir / f"opt-corr-samples{proc_string}.fits.gz"
+        filename = self.healpix_dir / f"opt-corr-samples{proc_string}.fits"
         output_fits = fitsio.FITS(filename, 'rw', clobber=True)
 
         for healpix_id, result in output.items():
