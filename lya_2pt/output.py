@@ -229,7 +229,7 @@ class Output:
         correlation_samples = np.array([result for result in output.values()])
 
         output_fits.write(
-            [correlation_samples],
+            correlation_samples,
             names=[correlation_name],
             comment=['unnormalized correlation'],
             header=header,
