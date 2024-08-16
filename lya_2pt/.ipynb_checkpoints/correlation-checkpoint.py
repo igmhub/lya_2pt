@@ -89,7 +89,13 @@ def compute_xi(healpix_id):
         gamma_1 = gen_gamma(lambda_rest_1,sigma_v)
 
         potential_neighbours = [tracer2 for hp in hp_neighs for tracer2 in globals.tracers2[hp]]
-
+        # for hp in hp_neighs:
+        #     if hp not in globals.tracers2:
+        #         continue
+        #     else:
+        #         potential_neighbours.append(globals.tracers2[hp])
+        # potential_neighbours = np.concatenate(potential_neighbours)
+        #ForkedPdb().set_trace()
 
         wlam_1 = (lambda_rest_1 > 1000) & (lambda_rest_1 < 1300)
 

@@ -26,4 +26,3 @@ rejection_fraction = None
 gamma_z_error = 0
 measured_gamma_interp = None
 cont_polynomial = None
-true_z_qso = None

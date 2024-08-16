@@ -17,8 +17,7 @@ import scipy.interpolate as spi
 accepted_options = [
     "nside", "num-cpu", "z_min", "z_max", "rp_min", "rp_max", "rt_max",
     "num_bins_rp", "num_bins_rt", "num_bins_rp_model", "num_bins_rt_model",
-    "rejection_fraction", "get-old-distortion","gamma_z_error","measured_gamma"
-    ,"cont_polynomial", "true_z_catalogue"
+    "rejection_fraction", "get-old-distortion","gamma_z_error","measured_gamma","cont_polynomial"
 ]
 
 defaults = {
@@ -113,12 +112,6 @@ class Interface:
         cont_polynomial_file = self.settings.get("cont_polynomial")
         if cont_polynomial_file != 'None':
             globals.cont_polynomial = dict(np.load(cont_polynomial_file))
-        
-        true_z_catalogue = self.settings.get("true_z_catalogue")
-        if true_z_catalogue != 'None':
-            globals.true_z_qso = dict(np.load(true_z_catalogue))
-
-
 
 
         self.nside = self.settings.getint("nside")

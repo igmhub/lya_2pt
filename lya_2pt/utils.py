@@ -189,6 +189,6 @@ def gen_gamma(lrest,sigma_v):
         #print('Using gamma interpolator')
         return interpo(lrest)
     else:
-        gamma_fun = gen_cont(lrest,sigma_v)/gen_cont(lrest,0) - 1
+        gamma_fun = (gen_cont(lrest,sigma_v)/gen_cont(lrest,0)) - 1
         #print(f'Running with gamma = {sigma_v}')
         return gamma_fun

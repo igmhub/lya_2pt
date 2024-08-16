@@ -80,6 +80,7 @@ class Export:
             results = [self._read_correlation(file) for file in files]
 
         results = np.array(results)
+
         self.correlations = results[:, 0, :]
         self.weights = results[:, 1, :]
         self.mean_correlation = np.sum(self.correlations * self.weights, axis=0)
@@ -91,8 +92,10 @@ class Export:
         #gamma terms
         self.gamma_gamma = results[:, 6, :]
         self.delta_gamma = results[:, 7, :]
+        #self.delta_gamma_p = results[:, 8, :]
         self.mean_gamma_gamma = np.sum(self.gamma_gamma * self.weights, axis=0)
         self.mean_delta_gamma = np.sum(self.delta_gamma * self.weights, axis=0)
+        #self.mean_delta_gamma_p = np.sum(self.delta_gamma_p * self.weights, axis=0)
 
         self.sum_weights = np.sum(self.weights, axis=0)
         w = self.sum_weights > 0
@@ -104,6 +107,8 @@ class Export:
         #gamma terms
         self.mean_gamma_gamma[w] /= self.sum_weights[w]
         self.mean_delta_gamma[w] /= self.sum_weights[w]
+        #self.mean_delta_gamma_p[w] /= self.sum_weights[w]
+
     
     def _read_correlation(self, file):
         with fitsio.FITS(file) as hdul:
@@ -117,8 +122,9 @@ class Export:
             weights = hdul[2]['WEIGHT_SUM'][:]
             gamma_gamma = hdul[2]['GAMMA_GAMMA'][:]
             delta_gamma = hdul[2]['DELTA_GAMMA'][:]
+            #delta_gamma_p = hdul[2]['DELTA_GAMMA_P'][:]
 
-        return correlation, weights, rp, rt, z, num_pairs, gamma_gamma, delta_gamma
+        return correlation, weights, rp, rt, z, num_pairs, gamma_gamma, delta_gamma#, delta_gamma_p
 
     def read_distortion(self):
         files = np.array(list(self.healpix_dir.glob('distortion*fits*')))
@@ -280,8 +286,8 @@ class Export:
         results.write(
             [self.r_par, self.r_trans, self.z_grid, self.mean_correlation,
              self.covariance, distortion, self.num_pairs, self.mean_gamma_gamma,
-             self.mean_delta_gamma],
-            names=['RP', 'RT', 'Z', 'DA', 'CO', 'DM', 'NB','GG','DG'],
+             self.mean_delta_gamma],#, self.mean_delta_gamma_p],
+            names=['RP', 'RT', 'Z', 'DA', 'CO', 'DM', 'NB','GG','DG'],#,'DG_P'],
             comment=comment,
             header=header,
             extname='COR'

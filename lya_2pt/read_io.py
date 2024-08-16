@@ -3,7 +3,23 @@ import numpy as np
 from lya_2pt.constants import ABSORBER_IGM
 from lya_2pt.errors import ReaderException
 from lya_2pt.tracer import Tracer
+import lya_2pt.global_data as globals
+import sys
 
+
+import pdb
+class ForkedPdb(pdb.Pdb):
+    """A Pdb subclass that may be used
+    from a forked multiprocessing child
+
+    """
+    def interaction(self, *args, **kwargs):
+        _stdin = sys.stdin
+        try:
+            sys.stdin = open('/dev/stdin')
+            pdb.Pdb.interaction(self, *args, **kwargs)
+        finally:
+            sys.stdin = _stdin
 
 def read_from_image(hdul, absorption_line, healpix_id, need_distortion=False, projection_order=1):
     """Read data with image format
@@ -51,11 +67,22 @@ def read_from_image(hdul, absorption_line, healpix_id, need_distortion=False, pr
     else:
         raise ReaderException(
             "Did not find LOGLAM or LAMBDA in delta file")
+    
+    #to put true z for qsos
+    if globals.true_z_qso is not None:
+        los_ids_catalogue = globals.true_z_qso['los_ids']
+        true_z_list = globals.true_z_qso['ztrue']
 
     tracers = np.empty(los_id_array.shape, dtype=Tracer)
     for i, (los_id, ra, dec, z_qso) in enumerate(
         zip(los_id_array, ra_array, dec_array, z_qso_array)
     ):
+        if globals.true_z_qso is not None:
+            w = los_ids_catalogue == los_id
+            z_qso = true_z_list[w]
+            if len(z_qso)==0:
+                continue
+            z_qso = z_qso[0]
         mask = ~np.isnan(deltas_array[i])
         tracers[i] = Tracer(
             healpix_id, los_id, ra, dec, z_qso, projection_order, deltas_array[i][mask],
