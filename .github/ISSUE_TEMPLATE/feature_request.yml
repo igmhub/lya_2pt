@@ -1,0 +1,17 @@
+name: Feature request
+description: Propose a user-visible capability or scientific workflow.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: Problem
+      description: Describe the user or scientific need.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Proposed solution
+      description: Describe the desired behavior and any configuration or output implications.
+    validations:
+      required: true

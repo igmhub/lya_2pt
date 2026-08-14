@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 
 import argparse
-from mpi4py import MPI
 from configparser import ConfigParser
 
-from lya_2pt.interface import Interface
+from mpi4py import MPI
+
 from lya_2pt.errors import MPIError
+from lya_2pt.interface import Interface
 
 
 def main():
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     description=('Compute auto-correlation function'))
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=("Compute auto-correlation function"),
+    )
 
-    parser.add_argument('-i', '--config', type=str, default=None,
-                        help=('Path to config file'))
+    parser.add_argument("-i", "--config", type=str, default=None, help=("Path to config file"))
 
     args = parser.parse_args()
 
@@ -28,10 +30,12 @@ def main():
     lya2pt = Interface(config)
 
     if len(lya2pt.files) < mpi_size:
-        raise MPIError(f"Less files than MPI processes. "
-                       f"Found {len(lya2pt.files)} healpix files and running "
-                       f"{mpi_size} MPI processes. This is wasteful. "
-                       "Please lower the numper of MPI processes.")
+        raise MPIError(
+            f"Less files than MPI processes. "
+            f"Found {len(lya2pt.files)} healpix files and running "
+            f"{mpi_size} MPI processes. This is wasteful. "
+            "Please lower the numper of MPI processes."
+        )
 
     num_tasks_per_proc = len(lya2pt.files) // mpi_size
     remainder = len(lya2pt.files) % mpi_size
@@ -43,12 +47,12 @@ def main():
         stop = int(start + num_tasks_per_proc)
 
     if mpi_rank == 0:
-        print('Starting computation...')
+        print("Starting computation...")
 
     lya2pt.read_tracers(lya2pt.files[start:stop])
     lya2pt.run()
     lya2pt.write_results()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

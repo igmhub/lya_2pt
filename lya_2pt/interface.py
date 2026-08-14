@@ -5,18 +5,28 @@ import tqdm
 
 import lya_2pt.global_data as globals
 from lya_2pt.correlation import compute_xi
-from lya_2pt.distortion import compute_dmat
 from lya_2pt.cosmo import Cosmology
-from lya_2pt.forest_healpix_reader import ForestHealpixReader
-from lya_2pt.tracer2_reader import Tracer2Reader
-from lya_2pt.utils import find_path, parse_config, compute_ang_max
-from lya_2pt.output import Output
+from lya_2pt.distortion import compute_dmat
 from lya_2pt.export import Export
+from lya_2pt.forest_healpix_reader import ForestHealpixReader
+from lya_2pt.output import Output
+from lya_2pt.tracer2_reader import Tracer2Reader
+from lya_2pt.utils import compute_ang_max, find_path, parse_config
 
 accepted_options = [
-    "nside", "num-cpu", "z_min", "z_max", "rp_min", "rp_max", "rt_max",
-    "num_bins_rp", "num_bins_rt", "num_bins_rp_model", "num_bins_rt_model",
-    "rejection_fraction", "get-old-distortion"
+    "nside",
+    "num-cpu",
+    "z_min",
+    "z_max",
+    "rp_min",
+    "rp_max",
+    "rt_max",
+    "num_bins_rp",
+    "num_bins_rt",
+    "num_bins_rp_model",
+    "num_bins_rt_model",
+    "rejection_fraction",
+    "get-old-distortion",
 ]
 
 defaults = {
@@ -32,43 +42,29 @@ defaults = {
     "num_bins_rp_model": 50,
     "num_bins_rt_model": 50,
     "rejection_fraction": 0.99,
-    "get-old-distortion": True
+    "get-old-distortion": True,
 }
 
 
 class Interface:
-    """Interface for lya_2pt package
-    Read ini files
-    Handle parallezation
-        - Read data
-        - Call individual compute functions
-    Write outputs
+    """Coordinate configuration parsing, tracer loading, and correlation runs.
 
-    Methods
-    -------
-    __init__
-    read_tracers
-    run_computation
-    write_healpix_output
+    Parameters
+    ----------
+    config : configparser.ConfigParser
+        Configuration containing tracer, cosmology, computation, output, and
+        export sections.
 
     Attributes
     ----------
-    ang_max: float
-    Maximum angle for two lines-of-sight to have neightbours
-
-    auto_flag: bool
-    True if we are working with an auto-correlation, False for cross-correlation
-    Initialized to False
-
-    nside: int
-    Nside parameter to construct the healpix pixels
-
-    z_max: float
-    Maximum redshfit of the tracers
-
-    z_min: float
-    Minimum redshift of the tracers
+    ang_max : float
+        Maximum angular separation used when finding neighbouring tracers.
+    auto_flag : bool
+        Whether the configuration describes an auto-correlation.
+    nside : int
+        HEALPix ``nside`` value used to find neighbouring pixels.
     """
+
     def __init__(self, config):
         """Initialize class instance
 
@@ -86,34 +82,35 @@ class Interface:
         self.settings = parse_config(config["settings"], defaults, accepted_options)
         globals.z_min = self.settings.getfloat("z_min")
         globals.z_max = self.settings.getfloat("z_max")
-        globals.rp_min = self.settings.getfloat('rp_min')
+        globals.rp_min = self.settings.getfloat("rp_min")
         globals.rp_max = self.settings.getfloat("rp_max")
         globals.rt_max = self.settings.getfloat("rt_max")
-        globals.num_bins_rp = self.settings.getint('num_bins_rp')
-        globals.num_bins_rt = self.settings.getint('num_bins_rt')
-        globals.num_bins_rp_model = self.settings.getint('num_bins_rp_model')
-        globals.num_bins_rt_model = self.settings.getint('num_bins_rt_model')
-        globals.rejection_fraction = self.settings.getfloat('rejection_fraction')
-        globals.get_old_distortion = self.settings.getboolean('get-old-distortion')
+        globals.num_bins_rp = self.settings.getint("num_bins_rp")
+        globals.num_bins_rt = self.settings.getint("num_bins_rt")
+        globals.num_bins_rp_model = self.settings.getint("num_bins_rp_model")
+        globals.num_bins_rt_model = self.settings.getint("num_bins_rt_model")
+        globals.rejection_fraction = self.settings.getfloat("rejection_fraction")
+        globals.get_old_distortion = self.settings.getboolean("get-old-distortion")
 
         self.nside = self.settings.getint("nside")
         self.num_cpu = self.settings.getint("num-cpu")
 
         # TODO The default value here is z=1.7. We should adjust if we ever run at lower redshift
-        self.ang_max = compute_ang_max(self.cosmo, self.settings.getfloat('rt_max'), 1.7)
+        self.ang_max = compute_ang_max(self.cosmo, self.settings.getfloat("rt_max"), 1.7)
 
         # check if we are working with an auto-correlation
         self.auto_flag = "tracer2" not in config
         globals.auto_flag = self.auto_flag
-        self.need_distortion = self.config['compute'].getboolean('compute-distortion-matrix', False)
+        self.need_distortion = self.config["compute"].getboolean("compute-distortion-matrix", False)
 
         # Find files
         input_directory = find_path(config["tracer1"].get("input-dir"))
-        self.files = np.array(list(input_directory.glob('*fits*')))
+        self.files = np.array(list(input_directory.glob("*fits*")))
 
         self.output = Output(config["output"])
         self.export = Export(
-            config["export"], self.output.name, self.output.output_directory, self.num_cpu)
+            config["export"], self.output.name, self.output.output_directory, self.num_cpu
+        )
 
     def read_tracers(self, files=None):
         """Read the tracers
@@ -143,45 +140,55 @@ class Interface:
         healpix_neighbours = {}
         for reader in forest_readers.values():
             healpix_neighbours[reader.healpix_id] = reader.find_healpix_neighbours(
-                self.nside, self.ang_max)
+                self.nside, self.ang_max
+            )
 
-        unique_healpix_neighbours = np.unique(np.hstack([
-            neigh for neigh in healpix_neighbours.values()]))
+        unique_healpix_neighbours = np.unique(
+            np.hstack([neigh for neigh in healpix_neighbours.values()])
+        )
 
         if self.auto_flag:
             auto_healpix_neighbours = unique_healpix_neighbours[
-                ~np.isin(unique_healpix_neighbours, list(forest_readers.keys()))]
+                ~np.isin(unique_healpix_neighbours, list(forest_readers.keys()))
+            ]
 
             tracer2_reader = Tracer2Reader(
-                self.config["tracer1"], auto_healpix_neighbours, self.cosmo,
-                self.num_cpu, self.need_distortion
-                )
+                self.config["tracer1"],
+                auto_healpix_neighbours,
+                self.cosmo,
+                self.num_cpu,
+                self.need_distortion,
+            )
             for forest_reader in forest_readers.values():
                 tracer2_reader.add_tracers(forest_reader)
         else:
             tracer2_reader = Tracer2Reader(
-                self.config["tracer2"], unique_healpix_neighbours, self.cosmo,
-                self.num_cpu, self.need_distortion
-                )
+                self.config["tracer2"],
+                unique_healpix_neighbours,
+                self.cosmo,
+                self.num_cpu,
+                self.need_distortion,
+            )
 
-        globals.tracers1 = {hp_id: forest_reader.tracers
-                            for hp_id, forest_reader in forest_readers.items()}
+        globals.tracers1 = {
+            hp_id: forest_reader.tracers for hp_id, forest_reader in forest_readers.items()
+        }
         globals.tracers2 = tracer2_reader.tracers
         globals.healpix_neighbours = healpix_neighbours
 
-        globals.num_tracers = np.sum(
-            [len(tracers)for tracers in tracer2_reader.tracers.values()])
+        globals.num_tracers = np.sum([len(tracers) for tracers in tracer2_reader.tracers.values()])
         self.healpix_ids = np.array(list(globals.tracers1.keys()))
 
     def read_tracer1(self, file):
         forest_reader = ForestHealpixReader(
-            self.config["tracer1"], file, self.cosmo, self.auto_flag, self.need_distortion)
+            self.config["tracer1"], file, self.cosmo, self.auto_flag, self.need_distortion
+        )
 
         return forest_reader
 
     @staticmethod
     def reset_global_counter():
-        globals.counter = multiprocessing.Value('i', 0)
+        globals.counter = multiprocessing.Value("i", 0)
         globals.lock = multiprocessing.Lock()
 
     def run(self, healpix_ids=None):
@@ -200,14 +207,15 @@ class Interface:
         else:
             for id in healpix_ids:
                 if id not in self.healpix_ids:
-                    raise ValueError(f'HEALPix ID {id} not found. '
-                                     f'Currently stored IDs: {self.healpix_ids}')
+                    raise ValueError(
+                        f"HEALPix ID {id} not found. Currently stored IDs: {self.healpix_ids}"
+                    )
 
         self.xi_output = {}
-        if self.config['compute'].getboolean('compute-correlation', False):
+        if self.config["compute"].getboolean("compute-correlation", False):
             self.reset_global_counter()
             if self.num_cpu > 1:
-                context = multiprocessing.get_context('fork')
+                context = multiprocessing.get_context("fork")
                 with context.Pool(processes=self.num_cpu) as pool:
                     results = pool.map(compute_xi, self.healpix_ids)
 
@@ -218,10 +226,10 @@ class Interface:
                     self.xi_output[healpix_id] = compute_xi(healpix_id)[1]
 
         self.dmat_output = {}
-        if self.config['compute'].getboolean('compute-distortion-matrix', False):
+        if self.config["compute"].getboolean("compute-distortion-matrix", False):
             self.reset_global_counter()
             if self.num_cpu > 1:
-                context = multiprocessing.get_context('fork')
+                context = multiprocessing.get_context("fork")
                 with context.Pool(processes=self.num_cpu) as pool:
                     results = pool.map(compute_dmat, self.healpix_ids)
 
@@ -234,21 +242,25 @@ class Interface:
         # TODO: add other computations
 
     def write_results(self):
-        if self.config['compute'].getboolean('compute-correlation', False):
+        if self.config["compute"].getboolean("compute-correlation", False):
             if self.num_cpu > 1:
                 with multiprocessing.Pool(processes=self.num_cpu) as pool:
-                    arguments = [(result, healpix_id, self.config, self.settings)
-                                 for healpix_id, result in self.xi_output.items()]
+                    arguments = [
+                        (result, healpix_id, self.config, self.settings)
+                        for healpix_id, result in self.xi_output.items()
+                    ]
                     _ = pool.starmap(self.output.write_cf_healpix, arguments)
             else:
                 for healpix_id, result in self.xi_output.items():
                     self.output.write_cf_healpix(result, healpix_id, self.config, self.settings)
 
-        if self.config['compute'].getboolean('compute-distortion-matrix', False):
+        if self.config["compute"].getboolean("compute-distortion-matrix", False):
             if self.num_cpu > 1:
                 with multiprocessing.Pool(processes=self.num_cpu) as pool:
-                    arguments = [(result, healpix_id, self.config, self.settings)
-                                 for healpix_id, result in self.dmat_output.items()]
+                    arguments = [
+                        (result, healpix_id, self.config, self.settings)
+                        for healpix_id, result in self.dmat_output.items()
+                    ]
                     _ = pool.starmap(self.output.write_dmat_healpix, arguments)
             else:
                 for healpix_id, result in self.dmat_output.items():

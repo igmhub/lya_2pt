@@ -1,56 +1,66 @@
 # lya_2pt
 
-[![Pytest](https://github.com/igmhub/lya_2pt/actions/workflows/python_package.yml/badge.svg)](https://github.com/igmhub/lya_2pt/actions/workflows/python_package.yml)
-[![codecov](https://codecov.io/gh/igmhub/lya_2pt/branch/main/graph/badge.svg?token=KNVLT9XERN)](https://codecov.io/gh/igmhub/lya_2pt)
+[![Quality](https://github.com/igmhub/lya_2pt/actions/workflows/quality.yml/badge.svg)](https://github.com/igmhub/lya_2pt/actions/workflows/quality.yml)
+[![Documentation](https://readthedocs.org/projects/lya-2pt/badge/?version=latest)](https://lya-2pt.readthedocs.io/)
 
-Package for computing 3D correlation functions from the Lyman-alpha forest and associated tracers.
-This package is still under development. 
+`lya_2pt` computes three-dimensional correlation functions from the Lyman-alpha
+forest and associated tracers. It currently supports auto-correlation functions
+and their distortion matrices.
 
-Currently available functionality:
-- Auto-correlation function
-- Distortion matrix for auto-correlation
+## Install
 
-Remaining functionality to implement:
-- Support for cross-correlations
-- Metal matrices
-- Wick covariance
+Python 3.10 or later and an MPI implementation are required. Install MPICH or
+Open MPI using your platform package manager, then install the package:
 
-## Installation
-First, create a clean environment:
-```
-conda create -n my_env python==version gitpython
-conda activate my_env
+```bash
+python -m pip install --upgrade pip
+python -m pip install .
 ```
 
-If you plan to use the MPI parallelized version, the next step is to install mpi4py. If you are at NERSC use this command (see [NERSC documentation](https://docs.nersc.gov/development/languages/python/parallel-python/#mpi4py-in-your-custom-conda-environment)):
-```
-MPICC="cc -shared" pip install --force-reinstall --no-cache-dir --no-binary=mpi4py mpi4py
-```
-If not at NERSC, follow the instructions in the [mpi4py documentation](https://mpi4py.readthedocs.io/en/stable/install.html).
+On NERSC, build `mpi4py` against the system MPI before installing the package:
 
-Finally, clone and install lya_2pt:
+```bash
+MPICC="cc -shared" python -m pip install --force-reinstall --no-cache-dir --no-binary=mpi4py mpi4py
+python -m pip install .
 ```
+
+For development, clone the repository and install the developer tools:
+
+```bash
 git clone https://github.com/igmhub/lya_2pt.git
 cd lya_2pt
-pip install -e .
+python -m pip install -e '.[dev]'
+pre-commit install
 ```
 
-## Usage
-You can run lya_2pt using a input configuration file with:
-```
+## Run
+
+Run the configuration-driven workflow with an INI file:
+
+```bash
 lya-2pt -i path/to/config.ini
 ```
-See [this example](https://github.com/igmhub/lya_2pt/blob/main/examples/lyaxlya_cf.ini) for how to setup the configuration file.
 
-For running the MPI parralelized version at NERSC, use:
-```
-srun lya-2pt-mpi -i path/to/config.ini
+The repository includes an annotated example at
+[`examples/lyaxlya_cf.ini`](examples/lyaxlya_cf.ini). Other entry points are
+`lya-2pt-cf`, `lya-2pt-dmat`, `lya-2pt-export`, and `lya-2pt-mpi`; use
+`<command> --help` for their options. MPI jobs are normally launched through
+the local scheduler, for example `srun lya-2pt-mpi -i path/to/config.ini`.
+
+## Development
+
+Run the local checks before opening a pull request:
+
+```bash
+ruff format --check .
+ruff check .
+pytest
 ```
 
-If you want to export the computation products separately from computing them, use:
-```
-lya-2pt-export -i path/to/config.ini
-```
+See the [documentation](https://lya-2pt.readthedocs.io/) for configuration and
+API guidance, and [CONTRIBUTING.md](CONTRIBUTING.md) for repository workflow
+and release conventions.
 
 ## Credits
+
 This package is based in part on [picca](https://github.com/igmhub/picca).

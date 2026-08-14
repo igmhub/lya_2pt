@@ -1,5 +1,3 @@
-
-
 counter = None
 lock = None
 

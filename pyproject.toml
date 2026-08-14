@@ -1,3 +1,98 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=68", "setuptools-scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "lya_2pt"
+dynamic = ["version"]
+description = "Compute 3D correlation functions from the Lyman-alpha forest and associated tracers."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Andrei Cuceu" },
+    { name = "Ignasi Pérez-Ràfols" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+dependencies = [
+    "astropy>=5",
+    "fitsio>=1.1",
+    "gitpython>=3.1",
+    "healpy>=1.16",
+    "mpi4py>=3.1",
+    "numba>=0.56",
+    "numpy>=1.23",
+    "scipy>=1.8",
+    "tqdm>=4.64",
+]
+
+[project.urls]
+Documentation = "https://lya-2pt.readthedocs.io/"
+Issues = "https://github.com/igmhub/lya_2pt/issues"
+Source = "https://github.com/igmhub/lya_2pt"
+
+[project.scripts]
+lya-2pt = "lya_2pt.scripts.run:main"
+lya-2pt-mpi = "lya_2pt.scripts.run_mpi:main"
+lya-2pt-export = "lya_2pt.scripts.run_export:main"
+lya-2pt-cf = "lya_2pt.scripts.run_cf:main"
+lya-2pt-dmat = "lya_2pt.scripts.run_dmat:main"
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.2",
+    "pre-commit>=3.7",
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.6",
+    "twine>=5",
+]
+docs = [
+    "furo>=2024.8.6",
+    "sphinx>=7",
+]
+
+[tool.setuptools.packages.find]
+include = ["lya_2pt*"]
+
+[tool.setuptools_scm]
+fallback_version = "0.1.0"
+local_scheme = "node-and-date"
+version_scheme = "no-guess-dev"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+filterwarnings = ["ignore::DeprecationWarning"]
+python_files = ["test_*.py", "*_tests.py"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.coverage.run]
+branch = true
+source = ["lya_2pt"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if self.debug:",
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.",
+]
+omit = ["tests/*"]

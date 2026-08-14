@@ -3,29 +3,29 @@
 
 class CosmologyError(Exception):
     """
-        Exceptions occurred in class Cosmology
+    Exceptions occurred in class Cosmology
     """
 
 
 class ReaderException(Exception):
     """
-        Exceptions occurred in classes ForestHealpixReader and Tracer2Reader
+    Exceptions occurred in classes ForestHealpixReader and Tracer2Reader
     """
 
 
 class MPIError(Exception):
     """
-        Exceptions related to MPI parallelization
+    Exceptions related to MPI parallelization
     """
 
 
 class ParserError(Exception):
     """
-        Exceptions occurred in parsing
+    Exceptions occurred in parsing
     """
 
 
 class FindBinsError(Exception):
     """
-        Exceptions occurred in parsing
+    Exceptions occurred in parsing
     """
