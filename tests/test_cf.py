@@ -5,7 +5,6 @@ import fitsio
 import numpy as np
 
 from lya_2pt import Interface
-from lya_2pt.utils import check_dir
 
 TESTS_DIR = Path(__file__).parent
 
@@ -13,13 +12,12 @@ TESTS_DIR = Path(__file__).parent
 def test_cf(tmp_path):
     config = ConfigParser()
     config.read(TESTS_DIR / "configs" / "lyaxlya_cf.ini")
+    output_dir = tmp_path / "products"
+    config["tracer1"]["input-dir"] = str((TESTS_DIR / "deltas").resolve())
+    config["output"]["output-dir"] = str(output_dir)
 
     print("Initializing")
     lya2pt = Interface(config)
-    output_dir = tmp_path / "products"
-    check_dir(output_dir)
-    lya2pt.output.output_directory = output_dir
-    lya2pt.export.output_directory = output_dir
 
     lya2pt.read_tracers()
     lya2pt.run()
