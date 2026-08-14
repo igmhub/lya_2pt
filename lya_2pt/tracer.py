@@ -1,8 +1,9 @@
 """This file defines the class Tracer used to compute the correlation functions"""
+
 import numpy as np
 
 from lya_2pt.constants import ABSORBER_IGM
-from lya_2pt.tracer_utils import rebin, project_deltas, get_angle_list, gram_schmidt
+from lya_2pt.tracer_utils import get_angle_list, gram_schmidt, project_deltas, rebin
 
 
 class Tracer:
@@ -75,8 +76,21 @@ class Tracer:
     project():
         Apply projection matrix to deltas
     """
-    def __init__(self, healpix_id, los_id, ra, dec, z_qso, order,
-                 deltas, weights, log_lambda, z, need_distortion=False):
+
+    def __init__(
+        self,
+        healpix_id,
+        los_id,
+        ra,
+        dec,
+        z_qso,
+        order,
+        deltas,
+        weights,
+        log_lambda,
+        z,
+        need_distortion=False,
+    ):
         """Initializes class instance
 
         Parameters
@@ -194,9 +208,14 @@ class Tracer:
             True if the tracers are neighbours. False otherwise
         """
         # # Check if they are in the same redshift bin
-        neighbours = [tracer for tracer in others
-                      if ((tracer.z[-1] + self.z[-1]) / 2. > z_min
-                          and (tracer.z[-1] + self.z[-1]) / 2. < z_max)]
+        neighbours = [
+            tracer
+            for tracer in others
+            if (
+                (tracer.z[-1] + self.z[-1]) / 2.0 > z_min
+                and (tracer.z[-1] + self.z[-1]) / 2.0 < z_max
+            )
+        ]
 
         # For auto correlation we make a selection based on RA to make sure we don't repeat pairs
         if auto_flag:
@@ -211,14 +230,14 @@ class Tracer:
 
         # Check if transverse separation is small enough
         dist_m0 = np.array([tracer.dist_m[0] for tracer in neighbours])
-        smallest_rts = (self.dist_m[0] + dist_m0) * np.sin(angles/2)
+        smallest_rts = (self.dist_m[0] + dist_m0) * np.sin(angles / 2)
 
         w = smallest_rts < rt_max
         neighbours = np.array(neighbours)[w]
         angles = angles[w]
 
         # Check if line-of-sight separation is small enough
-        cos_angles = np.cos(angles/2)
+        cos_angles = np.cos(angles / 2)
 
         dist_c_start = np.array([tracer.dist_c[0] for tracer in neighbours])
         w1 = self.dist_c[-1] < dist_c_start
@@ -259,13 +278,14 @@ class Tracer:
         absorption_line : string
             Name of main absorption line
         """
-        log_lambda, deltas, weights = rebin(self.log_lambda, self.deltas, self.weights,
-                                            rebin_factor, dwave)
+        log_lambda, deltas, weights = rebin(
+            self.log_lambda, self.deltas, self.weights, rebin_factor, dwave
+        )
 
         self.log_lambda = log_lambda
         self.deltas = deltas
         self.weights = weights
-        self.z = 10**log_lambda/ABSORBER_IGM.get(absorption_line) - 1.0
+        self.z = 10**log_lambda / ABSORBER_IGM.get(absorption_line) - 1.0
 
         if self.need_distortion:
             self.sum_weights = np.sum(weights)
@@ -288,10 +308,11 @@ class Tracer:
         self.is_projected = True
 
     def apply_z_evol_to_weights(self, redshift_evol, reference_z):
-        self.weights *= ((1 + self.z) / (1 + reference_z))**(redshift_evol - 1)
+        self.weights *= ((1 + self.z) / (1 + reference_z)) ** (redshift_evol - 1)
 
         if self.need_distortion:
             self.sum_weights = np.sum(self.weights)
-            self.logwave_term = self.log_lambda - (np.sum(self.log_lambda * self.weights)
-                                                   / self.sum_weights)
+            self.logwave_term = self.log_lambda - (
+                np.sum(self.log_lambda * self.weights) / self.sum_weights
+            )
             self.term3_norm = (self.weights * self.logwave_term**2).sum()

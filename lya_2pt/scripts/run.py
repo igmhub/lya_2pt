@@ -7,42 +7,42 @@ from lya_2pt.interface import Interface
 
 
 def main():
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     description=('run lya-2pt'))
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter, description=("run lya-2pt")
+    )
 
-    parser.add_argument('-i', '--config', type=str, default=None,
-                        help=('Path to config file'))
+    parser.add_argument("-i", "--config", type=str, default=None, help=("Path to config file"))
 
     args = parser.parse_args()
 
     config = ConfigParser()
     config.read(args.config)
 
-    print('Initializing')
+    print("Initializing")
     total_t1 = time.time()
     lya2pt = Interface(config)
 
-    print('Reading tracers')
+    print("Reading tracers")
     t1 = time.time()
     lya2pt.read_tracers()
     t2 = time.time()
-    print(f'Time reading: {(t2-t1):.3f}')
+    print(f"Time reading: {(t2 - t1):.3f}")
 
-    print('Computing correlation')
+    print("Computing correlation")
     t1 = time.time()
     lya2pt.run()
     t2 = time.time()
-    print(f'Time computing: {(t2-t1):.3f}')
+    print(f"Time computing: {(t2 - t1):.3f}")
 
-    print('Writing results')
+    print("Writing results")
     lya2pt.write_results()
 
-    print('Exporting')
+    print("Exporting")
     lya2pt.export.run(lya2pt.config, lya2pt.settings)
     total_t2 = time.time()
-    print(f'Total time: {(total_t2-total_t1):.3f} sec')
-    print('Done')
+    print(f"Total time: {(total_t2 - total_t1):.3f} sec")
+    print("Done")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

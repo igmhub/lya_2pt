@@ -4,13 +4,19 @@ from healpy import query_disc
 
 from lya_2pt.constants import ACCEPTED_BLINDING_STRATEGIES
 from lya_2pt.errors import ReaderException
+from lya_2pt.read_io import read_from_hdu, read_from_image
 from lya_2pt.utils import parse_config
-from lya_2pt.read_io import read_from_image, read_from_hdu
 
 accepted_options = [
-    "input-dir", "tracer-type", "absorption-line", "project-deltas",
-    "projection-order", "use-old-projection", "rebin",
-    "redshift-evolution", "reference-redshift"
+    "input-dir",
+    "tracer-type",
+    "absorption-line",
+    "project-deltas",
+    "projection-order",
+    "use-old-projection",
+    "rebin",
+    "redshift-evolution",
+    "reference-redshift",
 ]
 
 defaults = {
@@ -53,6 +59,7 @@ class ForestHealpixReader:
     tracers: array of Tracer
     The set of tracers for this healpix
     """
+
     def __init__(self, config, file, cosmo, auto_flag=False, need_distortion=False):
         """Initialize class instance
 
@@ -78,10 +85,9 @@ class ForestHealpixReader:
 
         # extract parameters from config
         absorption_line = reader_config.get("absorption-line")
-        tracer1_type = config.get('tracer-type')
-        if tracer1_type != 'continuous':
-            raise ReaderException(
-                f"Tracer type must be 'continuous'. Found: '{tracer1_type}'")
+        tracer1_type = config.get("tracer-type")
+        if tracer1_type != "continuous":
+            raise ReaderException(f"Tracer type must be 'continuous'. Found: '{tracer1_type}'")
 
         self.auto_flag = auto_flag
 
@@ -91,21 +97,29 @@ class ForestHealpixReader:
         # image format
         if "METADATA" in hdul:
             self.tracers, self.wave_solution, self.dwave = read_from_image(
-                hdul, absorption_line, self.healpix_id, need_distortion,
-                reader_config.getint("projection-order"))
+                hdul,
+                absorption_line,
+                self.healpix_id,
+                need_distortion,
+                reader_config.getint("projection-order"),
+            )
             self.blinding = hdul["METADATA"].read_header()["BLINDING"]
         # HDU per forest
         else:
             self.tracers, self.wave_solution, self.dwave = read_from_hdu(
-                hdul, absorption_line, self.healpix_id, need_distortion,
-                reader_config.getint("projection-order"))
+                hdul,
+                absorption_line,
+                self.healpix_id,
+                need_distortion,
+                reader_config.getint("projection-order"),
+            )
             self.blinding = hdul[1].read_header()["BLINDING"]
 
         if self.blinding not in ACCEPTED_BLINDING_STRATEGIES:
             raise ReaderException(
-                "Expected blinding strategy fo be one of: " +
-                " ".join(ACCEPTED_BLINDING_STRATEGIES) +
-                f" Found: {self.blinding}"
+                "Expected blinding strategy fo be one of: "
+                + " ".join(ACCEPTED_BLINDING_STRATEGIES)
+                + f" Found: {self.blinding}"
             )
 
         # rebin
@@ -150,13 +164,13 @@ class ForestHealpixReader:
         ReaderException if the self.tracers is None
         """
         if self.tracers is None:
-            raise ReaderException(
-                "In ForestHealpixReader, self.tracer should not be None")
+            raise ReaderException("In ForestHealpixReader, self.tracer should not be None")
 
         neighbour_ids = set()
         for tracer in self.tracers:
-            tracer_neighbour_ids = query_disc(nside, [tracer.x_cart, tracer.y_cart, tracer.z_cart],
-                                              ang_max, inclusive=True)
+            tracer_neighbour_ids = query_disc(
+                nside, [tracer.x_cart, tracer.y_cart, tracer.z_cart], ang_max, inclusive=True
+            )
             neighbour_ids = neighbour_ids.union(set(tracer_neighbour_ids))
 
         neighbour_ids = np.array(list(neighbour_ids))

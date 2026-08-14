@@ -34,23 +34,22 @@ def read_from_image(hdul, absorption_line, healpix_id, need_distortion=False, pr
     ra_array = hdul["METADATA"]["RA"][:]
     dec_array = hdul["METADATA"]["DEC"][:]
     z_qso_array = hdul["METADATA"]["Z"][:]
-    dwave = hdul["LAMBDA"].read_header()['DELTA_LAMBDA']
+    dwave = hdul["LAMBDA"].read_header()["DELTA_LAMBDA"]
 
     deltas_array = hdul["DELTA"].read().astype(float)
     weights_array = hdul["WEIGHT"].read().astype(float)
     wave_solution = None
     if "LOGLAM" in hdul:
         log_lambda = hdul["LOGLAM"][:].astype(float)
-        z = 10**log_lambda/ABSORBER_IGM.get(absorption_line) - 1.0
-        wave_solution = 'log'
+        z = 10**log_lambda / ABSORBER_IGM.get(absorption_line) - 1.0
+        wave_solution = "log"
     elif "LAMBDA" in hdul:
         lambda_ = hdul["LAMBDA"][:].astype(float)
         log_lambda = np.log10(lambda_)
-        z = lambda_/ABSORBER_IGM.get(absorption_line) - 1.0
-        wave_solution = 'lin'
+        z = lambda_ / ABSORBER_IGM.get(absorption_line) - 1.0
+        wave_solution = "lin"
     else:
-        raise ReaderException(
-            "Did not find LOGLAM or LAMBDA in delta file")
+        raise ReaderException("Did not find LOGLAM or LAMBDA in delta file")
 
     tracers = np.empty(los_id_array.shape, dtype=Tracer)
     for i, (los_id, ra, dec, z_qso) in enumerate(
@@ -58,9 +57,18 @@ def read_from_image(hdul, absorption_line, healpix_id, need_distortion=False, pr
     ):
         mask = ~np.isnan(deltas_array[i])
         tracers[i] = Tracer(
-            healpix_id, los_id, ra, dec, z_qso, projection_order, deltas_array[i][mask],
-            weights_array[i][mask], log_lambda[mask], z[mask], need_distortion
-            )
+            healpix_id,
+            los_id,
+            ra,
+            dec,
+            z_qso,
+            projection_order,
+            deltas_array[i][mask],
+            weights_array[i][mask],
+            log_lambda[mask],
+            z[mask],
+            need_distortion,
+        )
 
     return tracers, wave_solution, dwave
 
@@ -90,7 +98,7 @@ def read_from_hdu(hdul, absorption_line, healpix_id, need_distortion=False, proj
     ReaderException if both LOGLAM and LAMBDA extensions are not
     in the HDU list
     """
-    dwave = hdul[1].read_header()['DELTA_LAMBDA']
+    dwave = hdul[1].read_header()["DELTA_LAMBDA"]
 
     tracers = []
     wave_solution = None
@@ -98,28 +106,38 @@ def read_from_hdu(hdul, absorption_line, healpix_id, need_distortion=False, proj
         header = hdu.read_header()
 
         los_id = header["LOS_ID"]
-        ra = header['RA']
-        dec = header['DEC']
-        z_qso = header['Z']
+        ra = header["RA"]
+        dec = header["DEC"]
+        z_qso = header["Z"]
 
         delta = hdu["DELTA"][:].astype(float)
         weights = hdu["WEIGHT"][:].astype(float)
-        if 'LOGLAM' in hdu.get_colnames():
-            log_lambda = hdu['LOGLAM'][:].astype(float)
-            z = 10**log_lambda/ABSORBER_IGM.get(absorption_line) - 1.0
-            wave_solution = 'log'
-        elif 'LAMBDA' in hdu.get_colnames():
-            lambda_ = hdu['LAMBDA'][:].astype(float)
+        if "LOGLAM" in hdu.get_colnames():
+            log_lambda = hdu["LOGLAM"][:].astype(float)
+            z = 10**log_lambda / ABSORBER_IGM.get(absorption_line) - 1.0
+            wave_solution = "log"
+        elif "LAMBDA" in hdu.get_colnames():
+            lambda_ = hdu["LAMBDA"][:].astype(float)
             log_lambda = np.log10(lambda_)
-            z = lambda_/ABSORBER_IGM.get(absorption_line) - 1.0
-            wave_solution = 'lin'
+            z = lambda_ / ABSORBER_IGM.get(absorption_line) - 1.0
+            wave_solution = "lin"
         else:
-            raise ReaderException(
-                "Did not find LOGLAM or LAMBDA in delta file")
+            raise ReaderException("Did not find LOGLAM or LAMBDA in delta file")
 
-        tracers.append(Tracer(
-            healpix_id, los_id, ra, dec, z_qso, projection_order, delta, weights,
-            log_lambda, z, need_distortion
-            ))
+        tracers.append(
+            Tracer(
+                healpix_id,
+                los_id,
+                ra,
+                dec,
+                z_qso,
+                projection_order,
+                delta,
+                weights,
+                log_lambda,
+                z,
+                need_distortion,
+            )
+        )
 
     return np.array(tracers), wave_solution, dwave

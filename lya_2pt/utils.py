@@ -44,8 +44,8 @@ def parse_config(config, defaults, accepted_options):
     for key in config:
         if key not in accepted_options:
             raise ParserError(
-                f"Unrecognised option. Found: '{key}'. Accepted options are "
-                f"{accepted_options}")
+                f"Unrecognised option. Found: '{key}'. Accepted options are {accepted_options}"
+            )
 
     return config
 
@@ -82,13 +82,13 @@ def compute_ang_max(cosmo, rt_max, z_min, z_min2=None):
     if r_sum < rt_max:
         ang_max = np.pi
     else:
-        ang_max = 2. * np.arcsin(rt_max / r_sum)
+        ang_max = 2.0 * np.arcsin(rt_max / r_sum)
 
     return ang_max
 
 
 def find_path(path, enforce=True):
-    """ Find paths on the system.
+    """Find paths on the system.
 
     Parameters
     ----------
@@ -112,7 +112,7 @@ def find_path(path, enforce=True):
         return in_lya2pt.resolve()
 
     # Check if it's something used for tests
-    in_tests = lya2pt_path.parents[0] / 'tests' / input_path
+    in_tests = lya2pt_path.parents[0] / "tests" / input_path
     if in_tests.exists():
         return in_tests.resolve()
 
@@ -122,23 +122,18 @@ def find_path(path, enforce=True):
         return in_main.resolve()
 
     # Check the lya2pt bin folder
-    in_bin = lya2pt_path.parents[0] / 'bin' / input_path
+    in_bin = lya2pt_path.parents[0] / "bin" / input_path
     if in_bin.exists():
         return in_bin.resolve()
 
     if not enforce:
-        print(f'Warning, the path/file was not found: {input_path}')
+        print(f"Warning, the path/file was not found: {input_path}")
         return input_path
     else:
-        raise RuntimeError(f'The path/file does not exist: {input_path}')
+        raise RuntimeError(f"The path/file does not exist: {input_path}")
 
 
 def check_dir(dir: Path):
-    """
-    Checks that a directory exists, and that its permission group is DESI.
-    Args:
-        dir: Path
-            Directory to check
-    """
+    """Create ``dir`` when it does not already exist."""
     if not dir.is_dir():
         mkdir(dir)

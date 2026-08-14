@@ -46,8 +46,8 @@ def get_pixel_pairs_auto(distances1, distances2, angle):
     rp_rt_pairs = np.zeros((num_pairs, 2))
 
     k = np.int64(0)
-    for (i, (dc1, dm1)) in enumerate(distances1):
-        for (j, (dc2, dm2)) in enumerate(distances2):
+    for i, (dc1, dm1) in enumerate(distances1):
+        for j, (dc2, dm2) in enumerate(distances2):
             rp = np.abs((dc1 - dc2) * cos_angle)
             rt = (dm1 + dm2) * sin_angle
 
@@ -55,13 +55,17 @@ def get_pixel_pairs_auto(distances1, distances2, angle):
                 continue
 
             bin_rp_model = get_bin(rp, globals.rp_min, globals.rp_max, globals.num_bins_rp_model)
-            bin_rt_model = get_bin(rt, 0., globals.rt_max, globals.num_bins_rt_model)
+            bin_rt_model = get_bin(rt, 0.0, globals.rt_max, globals.num_bins_rt_model)
             bin_rp = get_bin(rp, globals.rp_min, globals.rp_max, globals.num_bins_rp)
-            bin_rt = get_bin(rt, 0., globals.rt_max, globals.num_bins_rt)
+            bin_rt = get_bin(rt, 0.0, globals.rt_max, globals.num_bins_rt)
 
             rp_rt_pairs[k] = rp, rt
-            pixel_pairs[k] = (i, j, bin_rt_model + globals.num_bins_rt_model * bin_rp_model,
-                              bin_rt + globals.num_bins_rt * bin_rp)
+            pixel_pairs[k] = (
+                i,
+                j,
+                bin_rt_model + globals.num_bins_rt_model * bin_rp_model,
+                bin_rt + globals.num_bins_rt * bin_rp,
+            )
             k += 1
 
     return pixel_pairs, rp_rt_pairs
@@ -87,8 +91,8 @@ def get_pixel_pairs_cross(distances1, distances2, angle):
     rp_rt_pairs = np.zeros((num_pairs, 2))
 
     k = np.int64(0)
-    for (i, (dc1, dm1)) in enumerate(distances1):
-        for (j, (dc2, dm2)) in enumerate(distances2):
+    for i, (dc1, dm1) in enumerate(distances1):
+        for j, (dc2, dm2) in enumerate(distances2):
             rp = (dc1 - dc2) * cos_angle
             rt = (dm1 + dm2) * sin_angle
 
@@ -96,13 +100,17 @@ def get_pixel_pairs_cross(distances1, distances2, angle):
                 continue
 
             bin_rp_model = get_bin(rp, globals.rp_min, globals.rp_max, globals.num_bins_rp_model)
-            bin_rt_model = get_bin(rt, 0., globals.rt_max, globals.num_bins_rt_model)
+            bin_rt_model = get_bin(rt, 0.0, globals.rt_max, globals.num_bins_rt_model)
             bin_rp = get_bin(rp, globals.rp_min, globals.rp_max, globals.num_bins_rp)
-            bin_rt = get_bin(rt, 0., globals.rt_max, globals.num_bins_rt)
+            bin_rt = get_bin(rt, 0.0, globals.rt_max, globals.num_bins_rt)
 
             rp_rt_pairs[k] = rp, rt
-            pixel_pairs[k] = (i, j, bin_rt_model + globals.num_bins_rt_model * bin_rp_model,
-                              bin_rt + globals.num_bins_rt * bin_rp)
+            pixel_pairs[k] = (
+                i,
+                j,
+                bin_rt_model + globals.num_bins_rt_model * bin_rp_model,
+                bin_rt + globals.num_bins_rt * bin_rp,
+            )
             k += 1
 
     return pixel_pairs, rp_rt_pairs

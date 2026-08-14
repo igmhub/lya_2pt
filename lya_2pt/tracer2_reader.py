@@ -2,11 +2,10 @@ from multiprocessing import Pool
 
 import numpy as np
 
-from lya_2pt.tracer import Tracer
 from lya_2pt import forest_healpix_reader
+from lya_2pt.errors import ReaderException
 from lya_2pt.forest_healpix_reader import ForestHealpixReader
 from lya_2pt.utils import find_path, parse_config
-from lya_2pt.errors import ReaderException
 
 # Read defaults from the healpix reader and add tracer2 specific options
 accepted_options = forest_healpix_reader.accepted_options
@@ -29,6 +28,7 @@ class Tracer2Reader:
     Attributes
     ----------
     """
+
     def __init__(self, config, healpix_neighbours, cosmo, num_cpu, need_distortion=False):
         """Initialize class instance
 
@@ -48,14 +48,13 @@ class Tracer2Reader:
 
         self.tracers = {}
 
-        tracer2_type = config.get('tracer-type')
-        if tracer2_type == 'continuous':
+        tracer2_type = config.get("tracer-type")
+        if tracer2_type == "continuous":
             self.read_forests(reader_config, healpix_neighbours, cosmo, num_cpu, need_distortion)
-        elif tracer2_type == 'discrete':
+        elif tracer2_type == "discrete":
             self.read_catalogue(reader_config, healpix_neighbours)
         else:
-            raise ReaderException(
-                "Unknown tracer2 type. Must be 'continuous' or 'discrete'.")
+            raise ReaderException("Unknown tracer2 type. Must be 'continuous' or 'discrete'.")
 
     def read_forests(self, config, healpix_neighbours, cosmo, num_cpu, need_distortion=False):
         """Read continuous tracers from healpix delta files
@@ -71,11 +70,12 @@ class Tracer2Reader:
         cosmo: Cosmology
         Fiducial cosmology used to go from angles and redshift to distances
         """
-        input_directory = find_path(config.get('input-dir'))
-        files = np.array(list(input_directory.glob('*fits*')))
+        input_directory = find_path(config.get("input-dir"))
+        files = np.array(list(input_directory.glob("*fits*")))
 
-        neighbour_files = [input_directory / f'delta-{healpix_id}.fits.gz'
-                           for healpix_id in healpix_neighbours]
+        neighbour_files = [
+            input_directory / f"delta-{healpix_id}.fits.gz" for healpix_id in healpix_neighbours
+        ]
         neighbour_files = [file for file in neighbour_files if file in files]
 
         if num_cpu > 1:
@@ -83,8 +83,10 @@ class Tracer2Reader:
             with Pool(processes=num_cpu) as pool:
                 results = pool.starmap(ForestHealpixReader, arguments)
         else:
-            results = [ForestHealpixReader(config, file, cosmo, False, need_distortion)
-                       for file in neighbour_files]
+            results = [
+                ForestHealpixReader(config, file, cosmo, False, need_distortion)
+                for file in neighbour_files
+            ]
 
         for healpix_reader in results:
             self.add_tracers(healpix_reader)

@@ -14,3 +14,10 @@ lya_2pt.egg-info/
 .coverage*
 
 coverage.xml
+
+AGENTS.md
+
+docs/_build/
+site/
+.pytest_cache/
+.ruff_cache/

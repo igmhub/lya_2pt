@@ -1,9 +1,0 @@
-numpy
-scipy
-astropy
-healpy
-fitsio
-numba
-setuptools
-gitpython
-tqdm

@@ -1,7 +1,7 @@
 import numpy as np
 from numba import njit
 
-SMALL_ANGLE_CUT_OFF = 2./3600.*np.pi/180.  # 2 arcsec
+SMALL_ANGLE_CUT_OFF = 2.0 / 3600.0 * np.pi / 180.0  # 2 arcsec
 
 
 def get_angle_list(tracer1, tracers2):
@@ -13,19 +13,21 @@ def get_angle_list(tracer1, tracers2):
     dec = np.array([t2.dec for t2 in tracers2])
 
     cos = x_cart * tracer1.x_cart + y_cart * tracer1.y_cart + z_cart * tracer1.z_cart
-    w = cos >= 1.
+    w = cos >= 1.0
     if w.sum() != 0:
-        cos[w] = 1.
-    w = cos <= -1.
+        cos[w] = 1.0
+    w = cos <= -1.0
     if w.sum() != 0:
-        cos[w] = -1.
+        cos[w] = -1.0
     angles = np.arccos(cos)
 
-    w = ((np.abs(ra - tracer1.ra) < SMALL_ANGLE_CUT_OFF) &
-         (np.abs(dec - tracer1.dec) < SMALL_ANGLE_CUT_OFF))
+    w = (np.abs(ra - tracer1.ra) < SMALL_ANGLE_CUT_OFF) & (
+        np.abs(dec - tracer1.dec) < SMALL_ANGLE_CUT_OFF
+    )
     if w.sum() != 0:
-        angles[w] = np.sqrt((dec[w] - tracer1.dec)**2 +
-                            (np.cos(tracer1.dec) * (ra[w] - tracer1.ra))**2)
+        angles[w] = np.sqrt(
+            (dec[w] - tracer1.dec) ** 2 + (np.cos(tracer1.dec) * (ra[w] - tracer1.ra)) ** 2
+        )
 
     return angles
 
@@ -34,14 +36,14 @@ def get_angle_list(tracer1, tracers2):
 def get_angle(x1, y1, z1, ra1, dec1, x2, y2, z2, ra2, dec2):
     """Compute angle between two tracers"""
     cos = x1 * x2 + y1 * y2 + z1 * z2
-    if cos >= 1.:
-        cos = 1.
-    elif cos <= -1.:
-        cos = -1.
+    if cos >= 1.0:
+        cos = 1.0
+    elif cos <= -1.0:
+        cos = -1.0
     angle = np.arccos(cos)
 
-    if ((np.abs(ra2 - ra1) < SMALL_ANGLE_CUT_OFF) & (np.abs(dec2 - dec1) < SMALL_ANGLE_CUT_OFF)):
-        angle = np.sqrt((dec2 - dec1)**2 + (np.cos(dec1) * (ra2 - ra1))**2)
+    if (np.abs(ra2 - ra1) < SMALL_ANGLE_CUT_OFF) & (np.abs(dec2 - dec1) < SMALL_ANGLE_CUT_OFF):
+        angle = np.sqrt((dec2 - dec1) ** 2 + (np.cos(dec1) * (ra2 - ra1)) ** 2)
 
     return angle
 
@@ -112,7 +114,7 @@ def rebin(log_lambda, deltas, weights, rebin_factor, dwave):
     rebin_weight: array of float
     The rebinned array for the weights
     """
-    wave = 10**np.array(log_lambda)
+    wave = 10 ** np.array(log_lambda)
 
     start = wave.min() - dwave / 2
     num_bins = np.ceil(((wave[-1] - wave[0]) / dwave + 1) / rebin_factor)
@@ -120,8 +122,8 @@ def rebin(log_lambda, deltas, weights, rebin_factor, dwave):
     edges = np.arange(num_bins) * dwave * rebin_factor + start
 
     new_indx = np.searchsorted(edges, wave)
-    binned_delta = np.bincount(new_indx, weights=deltas*weights, minlength=edges.size+1)[1:-1]
-    binned_weight = np.bincount(new_indx, weights=weights, minlength=edges.size+1)[1:-1]
+    binned_delta = np.bincount(new_indx, weights=deltas * weights, minlength=edges.size + 1)[1:-1]
+    binned_weight = np.bincount(new_indx, weights=weights, minlength=edges.size + 1)[1:-1]
 
     mask = binned_weight != 0
     binned_delta[mask] /= binned_weight[mask]
@@ -171,9 +173,9 @@ def project_deltas(log_lambda, deltas, weights, order):
     if order == 1:
         mean_log_lambda = np.average(log_lambda, weights=weights)
         meanless_log_lambda = log_lambda - mean_log_lambda
-        mean_delta_log_lambda = (
-            np.sum(weights * deltas * meanless_log_lambda) /
-            np.sum(weights * meanless_log_lambda**2))
+        mean_delta_log_lambda = np.sum(weights * deltas * meanless_log_lambda) / np.sum(
+            weights * meanless_log_lambda**2
+        )
         projected_deltas -= mean_delta_log_lambda * meanless_log_lambda
 
     return projected_deltas
