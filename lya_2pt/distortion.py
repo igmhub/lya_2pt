@@ -7,8 +7,10 @@ import lya_2pt.global_data as globals
 from lya_2pt.compute_utils import (
     fast_dot_product,
     fast_outer_product,
-    get_pixel_pairs_auto,
-    get_pixel_pairs_cross,
+    get_pixel_pairs_rmu_auto,
+    get_pixel_pairs_rmu_cross,
+    get_pixel_pairs_rprt_auto,
+    get_pixel_pairs_rprt_cross,
 )
 from lya_2pt.tracer_utils import get_angle
 
@@ -41,8 +43,16 @@ def compute_dmat(healpix_id):
     ]
     hp_neighs += [healpix_id]
 
-    total_size = int(globals.num_bins_rp * globals.num_bins_rt)
-    total_size_model = int(globals.num_bins_rp_model * globals.num_bins_rt_model)
+    if globals.rmu_binning:
+        total_size = int(globals.num_bins_r * globals.num_bins_mu)
+        total_size_model = int(globals.num_bins_r_model * globals.num_bins_mu_model)
+        neighbour_rp_max = globals.r_max
+        neighbour_rt_max = globals.r_max
+    else:
+        total_size = int(globals.num_bins_rp * globals.num_bins_rt)
+        total_size_model = int(globals.num_bins_rp_model * globals.num_bins_rt_model)
+        neighbour_rp_max = globals.rp_max
+        neighbour_rt_max = globals.rt_max
 
     distortion = np.zeros((total_size, total_size_model))
     weights_dmat = np.zeros(total_size)
@@ -68,8 +78,8 @@ def compute_dmat(healpix_id):
             globals.auto_flag,
             globals.z_min,
             globals.z_max,
-            globals.rp_max,
-            globals.rt_max,
+            neighbour_rp_max,
+            neighbour_rt_max,
         )
 
         w = np.random.rand(neighbours.size) > globals.rejection_fraction
@@ -111,12 +121,28 @@ def compute_tracer_pair_dmat(
     )
 
     # Find and save all relevant pixel pairs
-    if globals.auto_flag:
-        pixel_pairs, rp_rt_pairs = get_pixel_pairs_auto(tracer1.distances, tracer2.distances, angle)
+    if globals.rmu_binning:
+        if globals.auto_flag:
+            pixel_pairs, rp_rt_pairs = get_pixel_pairs_rmu_auto(
+                tracer1.distances,
+                tracer2.distances,
+                angle,
+            )
+        else:
+            pixel_pairs, rp_rt_pairs = get_pixel_pairs_rmu_cross(
+                tracer1.distances,
+                tracer2.distances,
+                angle,
+            )
     else:
-        pixel_pairs, rp_rt_pairs = get_pixel_pairs_cross(
-            tracer1.distances, tracer2.distances, angle
-        )
+        if globals.auto_flag:
+            pixel_pairs, rp_rt_pairs = get_pixel_pairs_rprt_auto(
+                tracer1.distances, tracer2.distances, angle
+            )
+        else:
+            pixel_pairs, rp_rt_pairs = get_pixel_pairs_rprt_cross(
+                tracer1.distances, tracer2.distances, angle
+            )
 
     # Identify the unique bins in rp/rt space
     unique_model_bins, unique_data_bins = get_unique_bins(pixel_pairs)

@@ -18,6 +18,12 @@ accepted_options = [
     "num-cpu",
     "z_min",
     "z_max",
+    "coordinate-system",
+    "rejection_fraction",
+    "get-old-distortion",
+]
+
+rp_rt_options = [
     "rp_min",
     "rp_max",
     "rt_max",
@@ -25,8 +31,6 @@ accepted_options = [
     "num_bins_rt",
     "num_bins_rp_model",
     "num_bins_rt_model",
-    "rejection_fraction",
-    "get-old-distortion",
 ]
 
 defaults = {
@@ -34,6 +38,12 @@ defaults = {
     "num-cpu": 1,
     "z_min": 0,
     "z_max": 10,
+    "coordinate-system": "rp-rt",
+    "rejection_fraction": 0.99,
+    "get-old-distortion": True,
+}
+
+rp_rt_defaults = {
     "rp_min": 0,
     "rp_max": 200,
     "rt_max": 200,
@@ -41,8 +51,28 @@ defaults = {
     "num_bins_rt": 50,
     "num_bins_rp_model": 50,
     "num_bins_rt_model": 50,
-    "rejection_fraction": 0.99,
-    "get-old-distortion": True,
+}
+
+r_mu_options = [
+    "r_min",
+    "r_max",
+    "mu_min",
+    "mu_max",
+    "num_bins_r",
+    "num_bins_mu",
+    "num_bins_r_model",
+    "num_bins_mu_model",
+]
+
+r_mu_defaults = {
+    "r_min": 0,
+    "r_max": 200,
+    "mu_min": 0,
+    "mu_max": 1,
+    "num_bins_r": 50,
+    "num_bins_mu": 50,
+    "num_bins_r_model": 50,
+    "num_bins_mu_model": 50,
 }
 
 
@@ -79,16 +109,78 @@ class Interface:
         self.cosmo = Cosmology(config["cosmology"])
 
         # parse config
-        self.settings = parse_config(config["settings"], defaults, accepted_options)
+        coordinate_system = config["settings"].get("coordinate-system", "rp-rt")
+        if coordinate_system == "rp-rt":
+            grid_defaults = rp_rt_defaults
+            grid_options = rp_rt_options
+            rmu_binning = False
+        elif coordinate_system == "r-mu":
+            grid_defaults = r_mu_defaults
+            grid_options = r_mu_options
+            rmu_binning = True
+        else:
+            raise ValueError(
+                f"coordinate-system must be either 'rp-rt' or 'r-mu', not '{coordinate_system}'"
+            )
+
+        self.settings = parse_config(
+            config["settings"], {**defaults, **grid_defaults}, accepted_options + grid_options
+        )
         globals.z_min = self.settings.getfloat("z_min")
         globals.z_max = self.settings.getfloat("z_max")
-        globals.rp_min = self.settings.getfloat("rp_min")
-        globals.rp_max = self.settings.getfloat("rp_max")
-        globals.rt_max = self.settings.getfloat("rt_max")
-        globals.num_bins_rp = self.settings.getint("num_bins_rp")
-        globals.num_bins_rt = self.settings.getint("num_bins_rt")
-        globals.num_bins_rp_model = self.settings.getint("num_bins_rp_model")
-        globals.num_bins_rt_model = self.settings.getint("num_bins_rt_model")
+        globals.rmu_binning = rmu_binning
+
+        if not rmu_binning:
+            globals.rp_min = self.settings.getfloat("rp_min")
+            globals.rp_max = self.settings.getfloat("rp_max")
+            globals.rt_max = self.settings.getfloat("rt_max")
+            globals.num_bins_rp = self.settings.getint("num_bins_rp")
+            globals.num_bins_rt = self.settings.getint("num_bins_rt")
+            globals.num_bins_rp_model = self.settings.getint("num_bins_rp_model")
+            globals.num_bins_rt_model = self.settings.getint("num_bins_rt_model")
+
+            if globals.rp_min >= globals.rp_max:
+                raise ValueError("rp must satisfy rp_min < rp_max")
+            if globals.rt_max <= 0:
+                raise ValueError("rt_max must be positive")
+            if (
+                min(
+                    globals.num_bins_rp,
+                    globals.num_bins_rt,
+                    globals.num_bins_rp_model,
+                    globals.num_bins_rt_model,
+                )
+                <= 0
+            ):
+                raise ValueError("All coordinate-grid bin counts must be positive")
+
+            neighbour_rt_max = globals.rt_max
+        else:
+            globals.r_min = self.settings.getfloat("r_min")
+            globals.r_max = self.settings.getfloat("r_max")
+            globals.mu_min = self.settings.getfloat("mu_min")
+            globals.mu_max = self.settings.getfloat("mu_max")
+            globals.num_bins_r = self.settings.getint("num_bins_r")
+            globals.num_bins_mu = self.settings.getint("num_bins_mu")
+            globals.num_bins_r_model = self.settings.getint("num_bins_r_model")
+            globals.num_bins_mu_model = self.settings.getint("num_bins_mu_model")
+
+            if globals.r_min < 0 or globals.r_min >= globals.r_max:
+                raise ValueError("r must satisfy 0 <= r_min < r_max")
+            if globals.mu_min < -1 or globals.mu_min >= globals.mu_max or globals.mu_max > 1:
+                raise ValueError("mu must satisfy -1 <= mu_min < mu_max <= 1")
+            if (
+                min(
+                    globals.num_bins_r,
+                    globals.num_bins_mu,
+                    globals.num_bins_r_model,
+                    globals.num_bins_mu_model,
+                )
+                <= 0
+            ):
+                raise ValueError("All coordinate-grid bin counts must be positive")
+
+            neighbour_rt_max = globals.r_max
         globals.rejection_fraction = self.settings.getfloat("rejection_fraction")
         globals.get_old_distortion = self.settings.getboolean("get-old-distortion")
 
@@ -96,7 +188,7 @@ class Interface:
         self.num_cpu = self.settings.getint("num-cpu")
 
         # TODO The default value here is z=1.7. We should adjust if we ever run at lower redshift
-        self.ang_max = compute_ang_max(self.cosmo, self.settings.getfloat("rt_max"), 1.7)
+        self.ang_max = compute_ang_max(self.cosmo, neighbour_rt_max, 1.7)
 
         # check if we are working with an auto-correlation
         self.auto_flag = "tracer2" not in config

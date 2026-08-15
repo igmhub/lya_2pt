@@ -18,5 +18,15 @@ num_bins_rt = None
 num_bins_rp_model = None
 num_bins_rt_model = None
 
+rmu_binning = None
+r_min = None
+r_max = None
+mu_min = None
+mu_max = None
+num_bins_r = None
+num_bins_mu = None
+num_bins_r_model = None
+num_bins_mu_model = None
+
 get_old_distortion = None
 rejection_fraction = None

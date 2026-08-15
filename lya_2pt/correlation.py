@@ -34,12 +34,21 @@ def compute_xi(healpix_id):
     ]
     hp_neighs += [healpix_id]
 
-    total_size = int(globals.num_bins_rp * globals.num_bins_rt)
+    if globals.rmu_binning:
+        total_size = int(globals.num_bins_r * globals.num_bins_mu)
+        neighbour_rp_max = globals.r_max
+        neighbour_rt_max = globals.r_max
+        compute_pair = compute_xi_pair_rmu
+    else:
+        total_size = int(globals.num_bins_rp * globals.num_bins_rt)
+        neighbour_rp_max = globals.rp_max
+        neighbour_rt_max = globals.rt_max
+        compute_pair = compute_xi_pair_rprt
 
     xi_grid = np.zeros(total_size)
     weights_grid = np.zeros(total_size)
-    rp_grid = np.zeros(total_size)
-    rt_grid = np.zeros(total_size)
+    coordinate1_grid = np.zeros(total_size)
+    coordinate2_grid = np.zeros(total_size)
     z_grid = np.zeros(total_size)
     num_pairs_grid = np.zeros(total_size, dtype=np.int32)
 
@@ -58,8 +67,8 @@ def compute_xi(healpix_id):
             globals.auto_flag,
             globals.z_min,
             globals.z_max,
-            globals.rp_max,
-            globals.rt_max,
+            neighbour_rp_max,
+            neighbour_rt_max,
         )
 
         for tracer2 in neighbours:
@@ -76,7 +85,7 @@ def compute_xi(healpix_id):
                 tracer2.dec,
             )
 
-            compute_xi_pair(
+            compute_pair(
                 tracer1.deltas,
                 tracer1.weights,
                 tracer1.z,
@@ -90,8 +99,8 @@ def compute_xi(healpix_id):
                 angle,
                 xi_grid,
                 weights_grid,
-                rp_grid,
-                rt_grid,
+                coordinate1_grid,
+                coordinate2_grid,
                 z_grid,
                 num_pairs_grid,
             )
@@ -99,15 +108,22 @@ def compute_xi(healpix_id):
     # Normalize correlation and average coordinate grids
     w = weights_grid > 0
     xi_grid[w] /= weights_grid[w]
-    rp_grid[w] /= weights_grid[w]
-    rt_grid[w] /= weights_grid[w]
+    coordinate1_grid[w] /= weights_grid[w]
+    coordinate2_grid[w] /= weights_grid[w]
     z_grid[w] /= weights_grid[w]
 
-    return healpix_id, (xi_grid, weights_grid, rp_grid, rt_grid, z_grid, num_pairs_grid)
+    return healpix_id, (
+        xi_grid,
+        weights_grid,
+        coordinate1_grid,
+        coordinate2_grid,
+        z_grid,
+        num_pairs_grid,
+    )
 
 
 @njit
-def compute_xi_pair(
+def compute_xi_pair_rprt(
     deltas1,
     weights1,
     z1,
@@ -121,8 +137,8 @@ def compute_xi_pair(
     angle,
     xi_grid,
     weights_grid,
-    rp_grid,
-    rt_grid,
+    coordinate1_grid,
+    coordinate2_grid,
     z_grid,
     num_pairs_grid,
 ):
@@ -142,11 +158,9 @@ def compute_xi_pair(
             if globals.auto_flag:
                 rp = np.abs(rp)
 
-            # Skip if pixel pair is too far apart
             if (rp < globals.rp_min) or (rp >= globals.rp_max) or (rt >= globals.rt_max):
                 continue
 
-            # Compute bin in the correlation function to asign the pixel pair to
             bins_rp = np.floor(
                 (rp - globals.rp_min) / (globals.rp_max - globals.rp_min) * globals.num_bins_rp
             )
@@ -157,7 +171,71 @@ def compute_xi_pair(
             weight12 = weights1[i] * weights2[j]
             xi_grid[bins] += deltas1[i] * deltas2[j] * weight12
             weights_grid[bins] += weight12
-            rp_grid[bins] += rp * weight12
-            rt_grid[bins] += rt * weight12
+            coordinate1_grid[bins] += rp * weight12
+            coordinate2_grid[bins] += rt * weight12
+            z_grid[bins] += (z1[i] + z2[j]) / 2 * weight12
+            num_pairs_grid[bins] += 1
+
+
+@njit
+def compute_xi_pair_rmu(
+    deltas1,
+    weights1,
+    z1,
+    dist_c1,
+    dist_m1,
+    deltas2,
+    weights2,
+    z2,
+    dist_c2,
+    dist_m2,
+    angle,
+    xi_grid,
+    weights_grid,
+    coordinate1_grid,
+    coordinate2_grid,
+    z_grid,
+    num_pairs_grid,
+):
+    sin_angle = np.sin(angle / 2)
+    cos_angle = np.cos(angle / 2)
+
+    for i in range(deltas1.size):
+        if weights1[i] == 0:
+            continue
+        for j in range(deltas2.size):
+            if weights2[j] == 0:
+                continue
+
+            rp = (dist_c1[i] - dist_c2[j]) * cos_angle
+            rt = (dist_m1[i] + dist_m2[j]) * sin_angle
+            if globals.auto_flag:
+                rp = np.abs(rp)
+
+            r = np.hypot(rp, rt)
+            if r == 0.0:
+                continue
+            mu = rp / r
+            if (
+                (r < globals.r_min)
+                or (r >= globals.r_max)
+                or (mu < globals.mu_min)
+                or (mu >= globals.mu_max)
+            ):
+                continue
+
+            bin_r = np.floor(
+                (r - globals.r_min) / (globals.r_max - globals.r_min) * globals.num_bins_r
+            )
+            bin_mu = np.floor(
+                (mu - globals.mu_min) / (globals.mu_max - globals.mu_min) * globals.num_bins_mu
+            )
+            bins = int(bin_mu + globals.num_bins_mu * bin_r)
+
+            weight12 = weights1[i] * weights2[j]
+            xi_grid[bins] += deltas1[i] * deltas2[j] * weight12
+            weights_grid[bins] += weight12
+            coordinate1_grid[bins] += r * weight12
+            coordinate2_grid[bins] += mu * weight12
             z_grid[bins] += (z1[i] + z2[j]) / 2 * weight12
             num_pairs_grid[bins] += 1
