@@ -3,6 +3,7 @@ from multiprocessing import Pool
 import fitsio
 import numpy as np
 
+from lya_2pt.output import get_coordinate_columns, get_coordinate_system, get_grid_header
 from lya_2pt.utils import parse_config
 
 accepted_options = ["export-correlation", "export-distortion", "smooth-covariance"]
@@ -33,7 +34,40 @@ class Export:
         self.export_correlation = self.config.getboolean("export-correlation")
         self.export_distortion = self.config.getboolean("export-distortion")
 
+    @staticmethod
+    def _coordinate_system_from_header(header):
+        if "COORDSYS" not in header:
+            return "RP_RT"
+        if header["COORDSYS"] != "R_MU":
+            raise ValueError(f"Unsupported FITS coordinate system: {header['COORDSYS']}")
+        return "R_MU"
+
+    def _set_coordinate_system(self, header):
+        coordinate_system = self._coordinate_system_from_header(header)
+        expected = getattr(self, "expected_coordinate_system", coordinate_system)
+        if coordinate_system != expected:
+            raise ValueError("Configuration and healpix FITS coordinate systems do not match")
+        if hasattr(self, "coordinate_system") and self.coordinate_system != coordinate_system:
+            raise ValueError("Cannot export correlation and distortion files on different grids")
+
+        self.coordinate_system = coordinate_system
+        if coordinate_system == "R_MU":
+            self.coordinate1_min = header["R_MIN"]
+            self.coordinate1_max = header["R_MAX"]
+            self.coordinate2_min = header["MU_MIN"]
+            self.coordinate2_max = header["MU_MAX"]
+            self.num_bins_coordinate1 = header["NUM_BINS_R"]
+            self.num_bins_coordinate2 = header["NUM_BINS_MU"]
+        else:
+            self.coordinate1_min = header["R_PAR_MIN"]
+            self.coordinate1_max = header["R_PAR_MAX"]
+            self.coordinate2_min = 0.0
+            self.coordinate2_max = header["R_TRANS_MAX"]
+            self.num_bins_coordinate1 = header["NUM_BINS_R_PAR"]
+            self.num_bins_coordinate2 = header["NUM_BINS_R_TRANS"]
+
     def run(self, global_config, settings):
+        self.expected_coordinate_system = get_coordinate_system(settings)
         if self.export_correlation:
             self.read_correlations()
 
@@ -64,14 +98,14 @@ class Export:
 
         with fitsio.FITS(files[0]) as hdul:
             header = hdul[1].read_header()
-            self.r_par_min = header["R_PAR_MIN"]
-            self.r_par_max = header["R_PAR_MAX"]
-            self.r_trans_max = header["R_TRANS_MAX"]
-            self.num_bins_r_par = header["NUM_BINS_R_PAR"]
-            self.num_bins_r_trans = header["NUM_BINS_R_TRANS"]
+            self._set_coordinate_system(header)
 
-        self.delta_r_par = (self.r_par_max - self.r_par_min) / self.num_bins_r_par
-        self.delta_r_trans = self.r_trans_max / self.num_bins_r_trans
+        self.delta_coordinate1 = (
+            self.coordinate1_max - self.coordinate1_min
+        ) / self.num_bins_coordinate1
+        self.delta_coordinate2 = (
+            self.coordinate2_max - self.coordinate2_min
+        ) / self.num_bins_coordinate2
 
         if self.num_cpu > 1:
             with Pool(processes=self.num_cpu) as pool:
@@ -83,22 +117,26 @@ class Export:
         self.correlations = results[:, 0, :]
         self.weights = results[:, 1, :]
         self.mean_correlation = np.sum(self.correlations * self.weights, axis=0)
-        self.r_par = np.sum(results[:, 2, :] * self.weights, axis=0)
-        self.r_trans = np.sum(results[:, 3, :] * self.weights, axis=0)
+        self.coordinate1 = np.sum(results[:, 2, :] * self.weights, axis=0)
+        self.coordinate2 = np.sum(results[:, 3, :] * self.weights, axis=0)
         self.z_grid = np.sum(results[:, 4, :] * self.weights, axis=0)
         self.num_pairs = np.sum(results[:, 5, :], axis=0)
 
         self.sum_weights = np.sum(self.weights, axis=0)
         w = self.sum_weights > 0
         self.mean_correlation[w] /= self.sum_weights[w]
-        self.r_par[w] /= self.sum_weights[w]
-        self.r_trans[w] /= self.sum_weights[w]
+        self.coordinate1[w] /= self.sum_weights[w]
+        self.coordinate2[w] /= self.sum_weights[w]
         self.z_grid[w] /= self.sum_weights[w]
 
     def _read_correlation(self, file):
         with fitsio.FITS(file) as hdul:
-            rp = hdul[1]["R_PAR"][:]
-            rt = hdul[1]["R_TRANS"][:]
+            coordinate_system = self._coordinate_system_from_header(hdul[1].read_header())
+            if coordinate_system != self.coordinate_system:
+                raise ValueError("Cannot export mixed coordinate-system healpix files")
+            coordinate_names, _, _ = get_coordinate_columns(coordinate_system)
+            coordinate1 = hdul[1][coordinate_names[0]][:]
+            coordinate2 = hdul[1][coordinate_names[1]][:]
             z = hdul[1]["Z"][:]
             num_pairs = hdul[1]["NUM_PAIRS"][:]
 
@@ -106,18 +144,14 @@ class Export:
             correlation = hdul[2]["CORRELATION"][:]
             weights = hdul[2]["WEIGHT_SUM"][:]
 
-        return correlation, weights, rp, rt, z, num_pairs
+        return correlation, weights, coordinate1, coordinate2, z, num_pairs
 
     def read_distortion(self):
         files = np.array(list(self.healpix_dir.glob("distortion*fits*")))
 
         with fitsio.FITS(files[0]) as hdul:
             header = hdul[1].read_header()
-            self.dist_rp_min = header["R_PAR_MIN"]
-            self.dist_rp_max = header["R_PAR_MAX"]
-            self.dist_rt_max = header["R_TRANS_MAX"]
-            self.dist_rp_size = header["NUM_BINS_R_PAR"]
-            self.dist_rt_size = header["NUM_BINS_R_TRANS"]
+            self._set_coordinate_system(header)
 
         if self.num_cpu > 1:
             with Pool(processes=self.num_cpu) as pool:
@@ -128,8 +162,8 @@ class Export:
         results = list(results)
         self.distortion = np.array([item[0] for item in results]).sum(axis=0)
         self.dist_weights = np.array([item[1] for item in results]).sum(axis=0)
-        self.dist_rp = np.array([item[2] for item in results]).sum(axis=0)
-        self.dist_rt = np.array([item[3] for item in results]).sum(axis=0)
+        self.dist_coordinate1 = np.array([item[2] for item in results]).sum(axis=0)
+        self.dist_coordinate2 = np.array([item[3] for item in results]).sum(axis=0)
         self.dist_z = np.array([item[4] for item in results]).sum(axis=0)
         self.dist_eff_weights = np.array([item[5] for item in results]).sum(axis=0)
         self.dist_num_pairs = np.array([item[6] for item in results]).sum(axis=0)
@@ -139,18 +173,22 @@ class Export:
         self.distortion[w] /= self.dist_weights[w, None]
 
         w = self.dist_eff_weights > 0
-        self.dist_rp[w] /= self.dist_eff_weights[w]
-        self.dist_rt[w] /= self.dist_eff_weights[w]
+        self.dist_coordinate1[w] /= self.dist_eff_weights[w]
+        self.dist_coordinate2[w] /= self.dist_eff_weights[w]
         self.dist_z[w] /= self.dist_eff_weights[w]
 
     def _read_distortion(self, file):
         with fitsio.FITS(file) as hdul:
             header = hdul[1].read_header()
+            coordinate_system = self._coordinate_system_from_header(header)
+            if coordinate_system != self.coordinate_system:
+                raise ValueError("Cannot export mixed coordinate-system healpix files")
             num_pairs = header["NUM_PAIRS"]
             num_pairs_used = header["PAIRS_USED"]
 
-            rp = hdul[1]["R_PAR"][:]
-            rt = hdul[1]["R_TRANS"][:]
+            coordinate_names, _, _ = get_coordinate_columns(coordinate_system)
+            coordinate1 = hdul[1][coordinate_names[0]][:]
+            coordinate2 = hdul[1][coordinate_names[1]][:]
             z = hdul[1]["Z"][:]
             eff_weights = hdul[1]["EFF_WEIGHTS"][:]
 
@@ -158,7 +196,16 @@ class Export:
             distortion = hdul[2]["DISTORTION"][:]
             weights = hdul[2]["DISTORTION_WEIGHTS"][:]
 
-        return distortion, weights, rp, rt, z, eff_weights, num_pairs, num_pairs_used
+        return (
+            distortion,
+            weights,
+            coordinate1,
+            coordinate2,
+            z,
+            eff_weights,
+            num_pairs,
+            num_pairs_used,
+        )
 
     def compute_covariance(self):
         meanless_xi_times_weights = self.weights * (self.correlations - self.mean_correlation)
@@ -194,22 +241,31 @@ class Export:
         for i in range(num_bins):
             print("\rSmoothing {}".format(i + 1), end="")
             for j in range(i + 1, num_bins):
-                ind_drp = round(abs(self.r_par[j] - self.r_par[i]) / self.delta_r_par)
-                ind_drt = round(abs(self.r_trans[i] - self.r_trans[j]) / self.delta_r_trans)
-                if (ind_drp, ind_drt) not in sum_correlation:
-                    sum_correlation[(ind_drp, ind_drt)] = 0
-                    counts_correlation[(ind_drp, ind_drt)] = 0
+                ind_coordinate1 = round(
+                    abs(self.coordinate1[j] - self.coordinate1[i]) / self.delta_coordinate1
+                )
+                ind_coordinate2 = round(
+                    abs(self.coordinate2[i] - self.coordinate2[j]) / self.delta_coordinate2
+                )
+                if (ind_coordinate1, ind_coordinate2) not in sum_correlation:
+                    sum_correlation[(ind_coordinate1, ind_coordinate2)] = 0
+                    counts_correlation[(ind_coordinate1, ind_coordinate2)] = 0
 
-                sum_correlation[(ind_drp, ind_drt)] += correlation[i, j]
-                counts_correlation[(ind_drp, ind_drt)] += 1
+                sum_correlation[(ind_coordinate1, ind_coordinate2)] += correlation[i, j]
+                counts_correlation[(ind_coordinate1, ind_coordinate2)] += 1
 
         for i in range(num_bins):
             correlation_smooth[i, i] = 1.0
             for j in range(i + 1, num_bins):
-                ind_drp = round(abs(self.r_par[j] - self.r_par[i]) / self.delta_r_par)
-                ind_drt = round(abs(self.r_trans[i] - self.r_trans[j]) / self.delta_r_trans)
+                ind_coordinate1 = round(
+                    abs(self.coordinate1[j] - self.coordinate1[i]) / self.delta_coordinate1
+                )
+                ind_coordinate2 = round(
+                    abs(self.coordinate2[i] - self.coordinate2[j]) / self.delta_coordinate2
+                )
                 correlation_smooth[i, j] = (
-                    sum_correlation[(ind_drp, ind_drt)] / counts_correlation[(ind_drp, ind_drt)]
+                    sum_correlation[(ind_coordinate1, ind_coordinate2)]
+                    / counts_correlation[(ind_coordinate1, ind_coordinate2)]
                 )
                 correlation_smooth[j, i] = correlation_smooth[i, j]
 
@@ -226,32 +282,8 @@ class Export:
         if distortion is None:
             distortion = np.eye(len(self.covariance))
 
-        header = [
-            {
-                "name": "R_PAR_MIN",
-                "value": settings.getfloat("rp_min"),
-                "comment": "Minimum r-parallel [h^-1 Mpc]",
-            },
-            {
-                "name": "R_PAR_MAX",
-                "value": settings.getfloat("rp_max"),
-                "comment": "Maximum r-parallel [h^-1 Mpc]",
-            },
-            {
-                "name": "R_TRANS_MAX",
-                "value": settings.getfloat("rt_max"),
-                "comment": "Maximum r-transverse [h^-1 Mpc]",
-            },
-            {
-                "name": "NUM_BINS_R_PAR",
-                "value": settings.getint("num_bins_rp"),
-                "comment": "Number of bins in r-parallel",
-            },
-            {
-                "name": "NUM_BINS_R_TRANS",
-                "value": settings.getint("num_bins_rt"),
-                "comment": "Number of bins in r-transverse",
-            },
+        coordinate_system = get_coordinate_system(settings)
+        header = get_grid_header(settings) + [
             {
                 "name": "Z_MIN",
                 "value": settings.getfloat("z_min"),
@@ -274,9 +306,19 @@ class Export:
             },
         ]
 
+        if coordinate_system == "R_MU":
+            coordinate_names = ["R", "MU"]
+            model_coordinate_names = ["DMR", "DMMU"]
+            coordinate_comments = ["Separation", "Cosine to line of sight"]
+            model_coordinate_comments = ["Separation model", "Cosine to line of sight model"]
+        else:
+            coordinate_names = ["RP", "RT"]
+            model_coordinate_names = ["DMRP", "DMRT"]
+            coordinate_comments = ["R-parallel", "R-transverse"]
+            model_coordinate_comments = ["R-parallel model", "R-transverse model"]
+
         comment = [
-            "R-parallel",
-            "R-transverse",
+            *coordinate_comments,
             "Redshift",
             "Correlation",
             "Covariance matrix",
@@ -285,24 +327,24 @@ class Export:
         ]
         results.write(
             [
-                self.r_par,
-                self.r_trans,
+                self.coordinate1,
+                self.coordinate2,
                 self.z_grid,
                 self.mean_correlation,
                 self.covariance,
                 distortion,
                 self.num_pairs,
             ],
-            names=["RP", "RT", "Z", "DA", "CO", "DM", "NB"],
+            names=[*coordinate_names, "Z", "DA", "CO", "DM", "NB"],
             comment=comment,
             header=header,
             extname="COR",
         )
 
-        comment = ["R-parallel model", "R-transverse model", "Redshift model"]
+        comment = [*model_coordinate_comments, "Redshift model"]
         results.write(
-            [self.r_par, self.r_trans, self.z_grid],
-            names=["DMRP", "DMRT", "DMZ"],
+            [self.coordinate1, self.coordinate2, self.z_grid],
+            names=[*model_coordinate_names, "DMZ"],
             comment=comment,
             extname="DMATRIX",
         )
@@ -312,32 +354,8 @@ class Export:
         output_file = self.output_directory / f"dmat_{self.name}-exp.fits.gz"
         results = fitsio.FITS(output_file, "rw", clobber=True)
 
-        header = [
-            {
-                "name": "R_PAR_MIN",
-                "value": settings.getfloat("rp_min"),
-                "comment": "Minimum r-parallel [h^-1 Mpc]",
-            },
-            {
-                "name": "R_PAR_MAX",
-                "value": settings.getfloat("rp_max"),
-                "comment": "Maximum r-parallel [h^-1 Mpc]",
-            },
-            {
-                "name": "R_TRANS_MAX",
-                "value": settings.getfloat("rt_max"),
-                "comment": "Maximum r-transverse [h^-1 Mpc]",
-            },
-            {
-                "name": "NUM_BINS_R_PAR",
-                "value": settings.getint("num_bins_rp"),
-                "comment": "Number of bins in r-parallel",
-            },
-            {
-                "name": "NUM_BINS_R_TRANS",
-                "value": settings.getint("num_bins_rt"),
-                "comment": "Number of bins in r-transverse",
-            },
+        coordinate_system = get_coordinate_system(settings)
+        header = get_grid_header(settings) + [
             {
                 "name": "Z_MIN",
                 "value": settings.getfloat("z_min"),
@@ -375,11 +393,20 @@ class Export:
             extname="COR",
         )
 
+        if coordinate_system == "R_MU":
+            coordinate_names = ["R", "MU"]
+            coordinate_comments = ["Separation", "Cosine to line of sight"]
+            coordinate_units = ["h^-1 Mpc", ""]
+        else:
+            coordinate_names = ["RP", "RT"]
+            coordinate_comments = ["R-parallel", "R-transverse"]
+            coordinate_units = ["h^-1 Mpc", "h^-1 Mpc"]
+
         results.write(
-            [self.dist_rp, self.dist_rt, self.dist_z],
-            names=["RP", "RT", "Z"],
-            comment=["R-parallel", "R-transverse", "Redshift"],
-            units=["h^-1 Mpc", "h^-1 Mpc", ""],
+            [self.dist_coordinate1, self.dist_coordinate2, self.dist_z],
+            names=[*coordinate_names, "Z"],
+            comment=[*coordinate_comments, "Redshift"],
+            units=[*coordinate_units, ""],
             extname="DMATRIX",
         )
         results.close()

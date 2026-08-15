@@ -9,6 +9,88 @@ defaults = {
 }
 
 
+def get_coordinate_system(settings):
+    """Return the FITS coordinate-system identifier for a settings section."""
+    if settings.get("coordinate-system", "rp-rt") == "r-mu":
+        return "R_MU"
+    return "RP_RT"
+
+
+def get_coordinate_columns(coordinate_system):
+    """Return coordinate column names, comments, and units for FITS products."""
+    if coordinate_system == "R_MU":
+        return ("R", "MU"), ("Separation", "Cosine to line of sight"), ("h^-1 Mpc", "")
+    return ("R_PAR", "R_TRANS"), ("R-parallel", "R-transverse"), ("h^-1 Mpc", "h^-1 Mpc")
+
+
+def get_grid_header(settings):
+    """Build coordinate-grid FITS metadata, preserving the legacy schema."""
+    if get_coordinate_system(settings) == "R_MU":
+        return [
+            {"name": "COORDSYS", "value": "R_MU", "comment": "Coordinate system"},
+            {
+                "name": "R_MIN",
+                "value": settings.getfloat("r_min"),
+                "comment": "Minimum r [h^-1 Mpc]",
+            },
+            {
+                "name": "R_MAX",
+                "value": settings.getfloat("r_max"),
+                "comment": "Maximum r [h^-1 Mpc]",
+            },
+            {"name": "MU_MIN", "value": settings.getfloat("mu_min"), "comment": "Minimum mu"},
+            {"name": "MU_MAX", "value": settings.getfloat("mu_max"), "comment": "Maximum mu"},
+            {
+                "name": "NUM_BINS_R",
+                "value": settings.getint("num_bins_r"),
+                "comment": "Number of bins in r",
+            },
+            {
+                "name": "NUM_BINS_MU",
+                "value": settings.getint("num_bins_mu"),
+                "comment": "Number of bins in mu",
+            },
+            {
+                "name": "NUM_BINS_R_MODEL",
+                "value": settings.getint("num_bins_r_model"),
+                "comment": "Number of model bins in r",
+            },
+            {
+                "name": "NUM_BINS_MU_MODEL",
+                "value": settings.getint("num_bins_mu_model"),
+                "comment": "Number of model bins in mu",
+            },
+        ]
+
+    return [
+        {
+            "name": "R_PAR_MIN",
+            "value": settings.getfloat("rp_min"),
+            "comment": "Minimum r-parallel [h^-1 Mpc]",
+        },
+        {
+            "name": "R_PAR_MAX",
+            "value": settings.getfloat("rp_max"),
+            "comment": "Maximum r-parallel [h^-1 Mpc]",
+        },
+        {
+            "name": "R_TRANS_MAX",
+            "value": settings.getfloat("rt_max"),
+            "comment": "Maximum r-transverse [h^-1 Mpc]",
+        },
+        {
+            "name": "NUM_BINS_R_PAR",
+            "value": settings.getint("num_bins_rp"),
+            "comment": "Number of bins in r-parallel",
+        },
+        {
+            "name": "NUM_BINS_R_TRANS",
+            "value": settings.getint("num_bins_rt"),
+            "comment": "Number of bins in r-transverse",
+        },
+    ]
+
+
 class Output:
     def __init__(self, config):
         self.config = parse_config(config, defaults, accepted_options)
@@ -35,32 +117,11 @@ class Output:
 
         # save data
         results = fitsio.FITS(filename, "rw", clobber=True)
-        header = [
-            {
-                "name": "R_PAR_MIN",
-                "value": settings.getfloat("rp_min"),
-                "comment": "Minimum r-parallel [h^-1 Mpc]",
-            },
-            {
-                "name": "R_PAR_MAX",
-                "value": settings.getfloat("rp_max"),
-                "comment": "Maximum r-parallel [h^-1 Mpc]",
-            },
-            {
-                "name": "R_TRANS_MAX",
-                "value": settings.getfloat("rt_max"),
-                "comment": "Maximum r-transverse [h^-1 Mpc]",
-            },
-            {
-                "name": "NUM_BINS_R_PAR",
-                "value": settings.getint("num_bins_rp"),
-                "comment": "Number of bins in r-parallel",
-            },
-            {
-                "name": "NUM_BINS_R_TRANS",
-                "value": settings.getint("num_bins_rt"),
-                "comment": "Number of bins in r-transverse",
-            },
+        coordinate_system = get_coordinate_system(settings)
+        coordinate_names, coordinate_comments, coordinate_units = get_coordinate_columns(
+            coordinate_system
+        )
+        header = get_grid_header(settings) + [
             {
                 "name": "Z_MIN",
                 "value": settings.getfloat("z_min"),
@@ -85,9 +146,9 @@ class Output:
         ]
         results.write(
             [output[2], output[3], output[4], output[5]],
-            names=["R_PAR", "R_TRANS", "Z", "NUM_PAIRS"],
-            comment=["R-parallel", "R-transverse", "Redshift", "Number of pairs"],
-            units=["h^-1 Mpc", "h^-1 Mpc", "", ""],
+            names=[*coordinate_names, "Z", "NUM_PAIRS"],
+            comment=[*coordinate_comments, "Redshift", "Number of pairs"],
+            units=[*coordinate_units, "", ""],
             header=header,
             extname="ATTRIBUTES",
         )
@@ -122,32 +183,11 @@ class Output:
 
         # save data
         results = fitsio.FITS(filename, "rw", clobber=True)
-        header = [
-            {
-                "name": "R_PAR_MIN",
-                "value": settings.getfloat("rp_min"),
-                "comment": "Minimum r-parallel [h^-1 Mpc]",
-            },
-            {
-                "name": "R_PAR_MAX",
-                "value": settings.getfloat("rp_max"),
-                "comment": "Maximum r-parallel [h^-1 Mpc]",
-            },
-            {
-                "name": "R_TRANS_MAX",
-                "value": settings.getfloat("rt_max"),
-                "comment": "Maximum r-transverse [h^-1 Mpc]",
-            },
-            {
-                "name": "NUM_BINS_R_PAR",
-                "value": settings.getint("num_bins_rp"),
-                "comment": "Number of bins in r-parallel",
-            },
-            {
-                "name": "NUM_BINS_R_TRANS",
-                "value": settings.getint("num_bins_rt"),
-                "comment": "Number of bins in r-transverse",
-            },
+        coordinate_system = get_coordinate_system(settings)
+        coordinate_names, coordinate_comments, coordinate_units = get_coordinate_columns(
+            coordinate_system
+        )
+        header = get_grid_header(settings) + [
             {
                 "name": "Z_MIN",
                 "value": settings.getfloat("z_min"),
@@ -179,9 +219,9 @@ class Output:
         ]
         results.write(
             [output[2], output[3], output[4], output[5]],
-            names=["R_PAR", "R_TRANS", "Z", "EFF_WEIGHTS"],
-            comment=["R-parallel", "R-transverse", "Redshift", "Effective weights"],
-            units=["h^-1 Mpc", "h^-1 Mpc", "", ""],
+            names=[*coordinate_names, "Z", "EFF_WEIGHTS"],
+            comment=[*coordinate_comments, "Redshift", "Effective weights"],
+            units=[*coordinate_units, "", ""],
             header=header,
             extname="ATTRIBUTES",
         )
