@@ -5,7 +5,14 @@ from lya_2pt.errors import ReaderException
 from lya_2pt.tracer import Tracer
 
 
-def read_from_image(hdul, absorption_line, healpix_id, need_distortion=False, projection_order=1):
+def read_from_image(
+    hdul,
+    absorption_line,
+    healpix_id,
+    need_distortion=False,
+    projection_order=1,
+    delta_column="DELTA",
+):
     """Read data with image format
 
     Arguments
@@ -36,7 +43,7 @@ def read_from_image(hdul, absorption_line, healpix_id, need_distortion=False, pr
     z_qso_array = hdul["METADATA"]["Z"][:]
     dwave = hdul["LAMBDA"].read_header()["DELTA_LAMBDA"]
 
-    deltas_array = hdul["DELTA"].read().astype(float)
+    deltas_array = hdul[delta_column].read().astype(float)
     weights_array = hdul["WEIGHT"].read().astype(float)
     wave_solution = None
     if "LOGLAM" in hdul:
@@ -73,7 +80,14 @@ def read_from_image(hdul, absorption_line, healpix_id, need_distortion=False, pr
     return tracers, wave_solution, dwave
 
 
-def read_from_hdu(hdul, absorption_line, healpix_id, need_distortion=False, projection_order=1):
+def read_from_hdu(
+    hdul,
+    absorption_line,
+    healpix_id,
+    need_distortion=False,
+    projection_order=1,
+    delta_column="DELTA",
+):
     """Read data with an HDU per forest
 
     Arguments
@@ -110,7 +124,7 @@ def read_from_hdu(hdul, absorption_line, healpix_id, need_distortion=False, proj
         dec = header["DEC"]
         z_qso = header["Z"]
 
-        delta = hdu["DELTA"][:].astype(float)
+        delta = hdu[delta_column][:].astype(float)
         weights = hdu["WEIGHT"][:].astype(float)
         if "LOGLAM" in hdu.get_colnames():
             log_lambda = hdu["LOGLAM"][:].astype(float)

@@ -95,7 +95,7 @@ class Interface:
         HEALPix ``nside`` value used to find neighbouring pixels.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, mpi_comm=None):
         """Initialize class instance
 
         Arugments
@@ -199,7 +199,7 @@ class Interface:
         input_directory = find_path(config["tracer1"].get("input-dir"))
         self.files = np.array(list(input_directory.glob("*fits*")))
 
-        self.output = Output(config["output"])
+        self.output = Output(config["output"], mpi_comm=mpi_comm)
         self.export = Export(
             config["export"], self.output.name, self.output.output_directory, self.num_cpu
         )
@@ -221,10 +221,15 @@ class Interface:
         else:
             results = [self.read_tracer1(file) for file in files]
 
+        blindings = {reader.blinding for reader in results}
+        if len(blindings) != 1:
+            raise ValueError("All input HEALPix files must use the same blinding strategy")
+
+        blinding = blindings.pop()
         if self.output.blinding is None:
-            self.output.blinding = results[0].blinding
-        else:
-            assert self.output.blinding == results[0].blinding
+            self.output.blinding = blinding
+        elif self.output.blinding != blinding:
+            raise ValueError("All input HEALPix files must use the same blinding strategy")
 
         forest_readers = {reader.healpix_id: reader for reader in results}
         del results

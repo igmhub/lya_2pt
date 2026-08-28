@@ -27,7 +27,7 @@ def main():
     mpi_rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
 
-    lya2pt = Interface(config)
+    lya2pt = Interface(config, mpi_comm=mpi_comm)
 
     if len(lya2pt.files) < mpi_size:
         raise MPIError(

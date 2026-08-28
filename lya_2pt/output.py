@@ -92,15 +92,18 @@ def get_grid_header(settings):
 
 
 class Output:
-    def __init__(self, config):
+    def __init__(self, config, mpi_comm=None):
         self.config = parse_config(config, defaults, accepted_options)
         self.name = self.config.get("name")
         self.output_directory = find_path(self.config.get("output-dir"), enforce=False)
-        check_dir(self.output_directory)
-
         self.blinding = None
         self.healpix_dir = self.output_directory / f"healpix_files_{self.name}"
-        check_dir(self.healpix_dir)
+
+        if mpi_comm is None or mpi_comm.Get_rank() == 0:
+            check_dir(self.output_directory)
+            check_dir(self.healpix_dir)
+        if mpi_comm is not None:
+            mpi_comm.Barrier()
 
     def write_cf_healpix(self, output, healpix_id, global_config, settings):
         """Write computation output for the main healpix
@@ -228,9 +231,13 @@ class Output:
 
         header2 = [{"name": "HEALPIX_ID", "value": healpix_id, "comment": "Healpix id"}]
 
+        distortion_name = "DISTORTION"
+        if self.blinding != "none":
+            distortion_name += "_BLIND"
+
         results.write(
             [output[0], output[1]],
-            names=["DISTORTION", "DISTORTION_WEIGHTS"],
+            names=[distortion_name, "DISTORTION_WEIGHTS"],
             comment=["unnormalized distortion", "distortion weights"],
             header=header2,
             extname="DISTORTION",

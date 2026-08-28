@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- Propagate DESI blinding metadata through correlation and distortion products,
+  and apply the ``desi_dr3`` correlation template during rp/rt export.
+
 ## v0.3.0 — 2026-08-14
 
 ### Added

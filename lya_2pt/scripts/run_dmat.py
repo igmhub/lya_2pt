@@ -3,6 +3,7 @@ import argparse
 import time
 from configparser import ConfigParser
 
+from lya_2pt.constants import ACCEPTED_BLIND_CORRELATION_TYPES
 from lya_2pt.interface import Interface
 
 
@@ -117,6 +118,12 @@ def main():
         required=False,
         help=("Number of cpus when running in parallel"),
     )
+    parser.add_argument(
+        "--blind-corr-type",
+        choices=ACCEPTED_BLIND_CORRELATION_TYPES,
+        default=None,
+        help="Correlation type used to select a DESI blinding template",
+    )
 
     args = parser.parse_args()
 
@@ -155,6 +162,8 @@ def main():
     config["output"] = {"name": args.name, "output-dir": args.output_dir}
 
     config["export"] = {"export-distortion": "True"}
+    if args.blind_corr_type is not None:
+        config["export"]["blind-corr-type"] = args.blind_corr_type
 
     print("Initializing")
     total_t1 = time.time()

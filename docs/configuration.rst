@@ -41,3 +41,22 @@ See ``examples/lyaxlya_rmu_cf.ini`` for a complete configuration.
 
 The package currently supports auto-correlations and their distortion matrices.
 Cross-correlations and metal-matrix workflows remain under development.
+
+Blinding
+--------
+
+The correlation and distortion calculations preserve the ``BLINDING`` value
+from the input delta files. For a ``desi_dr3`` input, export adds the DESI
+template to the aggregated rp/rt correlation and writes ``DA_BLIND`` and
+``DM_BLIND`` output columns. Set the template correlation type in the export
+section:
+
+.. code-block:: ini
+
+   [export]
+   blind-corr-type = lyaxlya
+
+Accepted values are ``lyaxlya``, ``lyaxlyb``, ``qsoxlya``, ``qsoxlyb``,
+``lyaxqso``, and ``lybxqso``. This option is required only for active
+``desi_dr3`` blinding. Blinded export is supported only on the rp/rt grid;
+the HDF5 template files are available from the DESI NERSC filesystem.

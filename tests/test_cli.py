@@ -25,3 +25,13 @@ def test_cli_help(program, entry_point, monkeypatch, capsys):
 
     assert error.value.code == 0
     assert "usage:" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("entry_point", [run_cf.main, run_dmat.main])
+def test_blind_corr_type_cli_help(entry_point, monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["lya-2pt", "--help"])
+
+    with pytest.raises(SystemExit):
+        entry_point()
+
+    assert "--blind-corr-type" in capsys.readouterr().out
