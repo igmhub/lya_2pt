@@ -425,7 +425,7 @@ class Export:
     def write_correlation(self, global_config, settings):
         xi = self._apply_blinding(self.mean_correlation.copy())
         correlation_name = "DA_BLIND" if self._output_is_blinded() else "DA"
-        distortion_name = "DM_BLIND" if self._output_is_blinded() else "DM"
+        distortion_name = "DM_EMPTY" if self._output_is_blinded() else "DM"
 
         output_file = self.output_directory / f"{self.name}-exp.fits.gz"
         results = fitsio.FITS(output_file, "rw", clobber=True)

@@ -124,6 +124,32 @@ def test_rmu_allows_unblindable_strategies(tmp_path, blinding):
     assert not export._output_is_blinded()
 
 
+def test_blinded_correlation_labels_identity_distortion_as_empty(tmp_path, monkeypatch):
+    config = ConfigParser()
+    config.read(TESTS_DIR / "configs" / "lyaxlya_cf.ini")
+    config["settings"]["num_bins_rp"] = "1"
+    config["settings"]["num_bins_rt"] = "2"
+
+    export = _make_export(tmp_path, "lyaxlya")
+    export.blinding = "desi_dr3"
+    export.mean_correlation = np.zeros(2)
+    export.coordinate1 = np.zeros(2)
+    export.coordinate2 = np.zeros(2)
+    export.z_grid = np.zeros(2)
+    export.covariance = np.eye(2)
+    export.num_pairs = np.zeros(2, dtype=int)
+    monkeypatch.setattr(export, "_apply_blinding", lambda xi: xi)
+
+    export.write_correlation(config, config["settings"])
+
+    with fitsio.FITS(tmp_path / "products" / "test-exp.fits.gz") as hdul:
+        columns = hdul[1].get_colnames()
+        assert "DA_BLIND" in columns
+        assert "DM_EMPTY" in columns
+        assert "DM_BLIND" not in columns
+        assert np.array_equal(hdul[1]["DM_EMPTY"][:], np.eye(2))
+
+
 def test_reader_rejects_mixed_blinding_strategies(tmp_path):
     input_directory = _copy_blinded_deltas(tmp_path, ["none", "desi_dr3"])
     lya2pt = _make_interface(tmp_path, input_directory)
