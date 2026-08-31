@@ -3,8 +3,6 @@
 import argparse
 from configparser import ConfigParser
 
-from mpi4py import MPI
-
 from lya_2pt.errors import MPIError
 from lya_2pt.interface import Interface
 
@@ -18,6 +16,9 @@ def main():
     parser.add_argument("-i", "--config", type=str, default=None, help=("Path to config file"))
 
     args = parser.parse_args()
+
+    # Keep CLI discovery and --help from initializing an MPI runtime.
+    from mpi4py import MPI
 
     config = ConfigParser()
     config.read(args.config)

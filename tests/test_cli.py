@@ -1,10 +1,30 @@
 """Smoke tests for the installed command-line entry points."""
 
+import subprocess
 import sys
 
 import pytest
 
 from lya_2pt.scripts import run, run_cf, run_dmat, run_export, run_mpi
+
+
+def test_importing_mpi_cli_does_not_initialize_mpi():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; "
+                "from lya_2pt.scripts import run_mpi; "
+                "assert 'mpi4py.MPI' not in sys.modules"
+            ),
+        ],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.mark.parametrize(
