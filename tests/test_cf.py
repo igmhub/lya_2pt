@@ -34,6 +34,8 @@ def test_cf(tmp_path):
     cf_file_test = TESTS_DIR / "output" / f"{lya2pt.export.name}-exp.fits.gz"
     hdul_cf_test = fitsio.FITS(cf_file_test)
 
+    assert hdul_cf[1].read_header()["BLINDING"] == "none"
+    assert {"DA", "DM"}.issubset(hdul_cf[1].get_colnames())
     assert np.allclose(hdul_cf[1]["DA"][:], hdul_cf_test[1]["DA"][:])
     assert np.allclose(hdul_cf[1]["CO"][:], hdul_cf_test[1]["CO"][:])
     assert np.allclose(hdul_cf[1]["RP"][:], hdul_cf_test[1]["RP"][:])
@@ -45,6 +47,8 @@ def test_cf(tmp_path):
     hdul_dmat = fitsio.FITS(dmat_file)
     dmat_file_test = TESTS_DIR / "output" / f"dmat_{lya2pt.export.name}-exp.fits.gz"
     hdul_dmat_test = fitsio.FITS(dmat_file_test)
+    assert hdul_dmat[1].read_header()["BLINDING"] == "none"
+    assert "DM" in hdul_dmat[1].get_colnames()
     assert np.allclose(hdul_dmat[1]["DM"][:], hdul_dmat_test[1]["DM"][:])
     assert np.allclose(hdul_dmat[1]["WDM"][:], hdul_dmat_test[1]["WDM"][:])
     assert np.allclose(hdul_dmat[2]["RP"][:], hdul_dmat_test[2]["RP"][:])

@@ -96,14 +96,43 @@ class ForestHealpixReader:
         hdul = fitsio.FITS(file)
         # image format
         if "METADATA" in hdul:
+            header = hdul["METADATA"].read_header()
+            delta_blind_exists = "DELTA_BLIND" in hdul
+            delta_blind_exists_for_all_forests = delta_blind_exists
+        # HDU per forest
+        else:
+            header = hdul[1].read_header()
+            delta_blind_columns = ["DELTA_BLIND" in hdu.get_colnames() for hdu in hdul[1:]]
+            delta_blind_exists = any(delta_blind_columns)
+            delta_blind_exists_for_all_forests = all(delta_blind_columns)
+
+        self.blinding = header["BLINDING"] if "BLINDING" in header else "none"
+
+        if self.blinding not in ACCEPTED_BLINDING_STRATEGIES:
+            raise ReaderException(
+                "Expected blinding strategy fo be one of: "
+                + " ".join(ACCEPTED_BLINDING_STRATEGIES)
+                + f" Found: {self.blinding}"
+            )
+        if self.blinding == "none" and delta_blind_exists:
+            raise ReaderException(
+                "Found DELTA_BLIND in a file with BLINDING='none'. Use DELTA instead."
+            )
+        if self.blinding != "none" and not delta_blind_exists_for_all_forests:
+            raise ReaderException(
+                f"BLINDING='{self.blinding}' requires DELTA_BLIND instead of DELTA."
+            )
+
+        delta_column = "DELTA" if self.blinding == "none" else "DELTA_BLIND"
+        if "METADATA" in hdul:
             self.tracers, self.wave_solution, self.dwave = read_from_image(
                 hdul,
                 absorption_line,
                 self.healpix_id,
                 need_distortion,
                 reader_config.getint("projection-order"),
+                delta_column,
             )
-            self.blinding = hdul["METADATA"].read_header()["BLINDING"]
         # HDU per forest
         else:
             self.tracers, self.wave_solution, self.dwave = read_from_hdu(
@@ -112,14 +141,7 @@ class ForestHealpixReader:
                 self.healpix_id,
                 need_distortion,
                 reader_config.getint("projection-order"),
-            )
-            self.blinding = hdul[1].read_header()["BLINDING"]
-
-        if self.blinding not in ACCEPTED_BLINDING_STRATEGIES:
-            raise ReaderException(
-                "Expected blinding strategy fo be one of: "
-                + " ".join(ACCEPTED_BLINDING_STRATEGIES)
-                + f" Found: {self.blinding}"
+                delta_column,
             )
 
         # rebin

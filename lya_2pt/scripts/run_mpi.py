@@ -3,8 +3,6 @@
 import argparse
 from configparser import ConfigParser
 
-from mpi4py import MPI
-
 from lya_2pt.errors import MPIError
 from lya_2pt.interface import Interface
 
@@ -19,6 +17,9 @@ def main():
 
     args = parser.parse_args()
 
+    # Keep CLI discovery and --help from initializing an MPI runtime.
+    from mpi4py import MPI
+
     config = ConfigParser()
     config.read(args.config)
 
@@ -27,7 +28,7 @@ def main():
     mpi_rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
 
-    lya2pt = Interface(config)
+    lya2pt = Interface(config, mpi_comm=mpi_comm)
 
     if len(lya2pt.files) < mpi_size:
         raise MPIError(

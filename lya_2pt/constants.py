@@ -1,4 +1,13 @@
-ACCEPTED_BLINDING_STRATEGIES = ["none", "desi_m2", "desi_y1", "desi_y3"]
+ACCEPTED_BLINDING_STRATEGIES = ["none", "desi_m2", "desi_y1", "desi_y3", "desi_dr3"]
+
+ACCEPTED_BLIND_CORRELATION_TYPES = [
+    "lyaxlya",
+    "lyaxlyb",
+    "qsoxlya",
+    "qsoxlyb",
+    "lyaxqso",
+    "lybxqso",
+]
 
 ABSORBER_IGM = {
     "Halpha": 6562.8,
