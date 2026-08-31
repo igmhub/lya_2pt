@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.4.0 — 2026-08-31
+
 ### Added
 
 - Propagate DESI blinding metadata through correlation and distortion products,
